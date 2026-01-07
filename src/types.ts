@@ -1,4 +1,4 @@
-ãq!export type Role = 'Student' | 'Teacher' | 'Admin';
+export type Role = 'Student' | 'Teacher' | 'Admin';
 export type Grade = 9 | 10 | 11 | 12;
 
 export interface User {
