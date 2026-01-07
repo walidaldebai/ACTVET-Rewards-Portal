@@ -39,15 +39,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             ...userDoc.data(),
                         } as User);
                     } else {
-                        setCurrentUser({
-                            id: fbUser.uid,
-                            email: fbUser.email,
-                            name: fbUser.displayName || 'User',
-                            role: 'Student',
-                        } as User);
+                        // User exists in Auth but not in our Firestore Registry
+                        console.error("Authenticated user not found in Firestore registry. Access Denied.");
+                        await signOut(auth);
+                        setCurrentUser(null);
                     }
                 } catch (error) {
                     console.error("Error fetching user data:", error);
+                    setCurrentUser(null);
                 }
             } else {
                 setCurrentUser(null);

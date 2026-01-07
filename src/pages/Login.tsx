@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { LogIn, ShieldAlert, BadgeCheck, Zap, Award, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -53,12 +54,31 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // Further role check happens in App.tsx / AuthContext
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const fbUser = userCredential.user;
+
+      // 1. Verify existence in Institutional Active Directory (Firestore)
+      const userDoc = await getDoc(doc(db, 'Users', fbUser.uid));
+
+      if (!userDoc.exists()) {
+        // Log out immediately if not in our database
+        await auth.signOut();
+        setError('Access Denied: Your account is not registered in the Institutional Active Directory. Please contact an administrator.');
+        console.warn(`Unauthorized login attempt by ${email} - UID: ${fbUser.uid}`);
+        return;
+      }
+
+      // Success - redirtection is handled by AuthContext/App.tsx
       navigate('/');
     } catch (err: any) {
-      setError('Authentication failed. Please check your credentials.');
-      console.error(err);
+      console.error("Login Error:", err.code);
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('Invalid credentials. Please check your email and password.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many failed attempts. Account temporarily locked.');
+      } else {
+        setError('Authentication failed. Ensure you have an active internet connection.');
+      }
     } finally {
       setLoading(false);
     }

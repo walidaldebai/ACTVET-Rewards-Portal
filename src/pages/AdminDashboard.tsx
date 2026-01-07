@@ -22,6 +22,7 @@ const AdminDashboard: React.FC = () => {
     const [newUserPassword, setNewUserPassword] = useState('');
     const [newUserRole, setNewUserRole] = useState<Role>('Student');
     const [provisionLoading, setProvisionLoading] = useState(false);
+    const [roleFilter, setRoleFilter] = useState<'All' | Role>('All');
 
     useEffect(() => {
         fetchData();
@@ -236,7 +237,12 @@ const AdminDashboard: React.FC = () => {
                         </form>
 
                         <div className="table-header-ctrl">
-                            <h3>Active Directory</h3>
+                            <div className="table-tabs">
+                                <button className={`tab-item ${roleFilter === 'All' ? 'active' : ''}`} onClick={() => setRoleFilter('All')}>Overview</button>
+                                <button className={`tab-item ${roleFilter === 'Student' ? 'active' : ''}`} onClick={() => setRoleFilter('Student')}>Students</button>
+                                <button className={`tab-item ${roleFilter === 'Teacher' ? 'active' : ''}`} onClick={() => setRoleFilter('Teacher')}>Faculty</button>
+                                <button className={`tab-item ${roleFilter === 'Admin' ? 'active' : ''}`} onClick={() => setRoleFilter('Admin')}>Admins</button>
+                            </div>
                             <button className="text-btn" onClick={() => setShowPasswords(!showPasswords)}>
                                 {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
                                 {showPasswords ? 'Hide Passwords' : 'Show Passwords'}
@@ -254,7 +260,7 @@ const AdminDashboard: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {users.map(user => (
+                                    {users.filter(u => roleFilter === 'All' || u.role === roleFilter).map(user => (
                                         <tr key={user.id}>
                                             <td>
                                                 <div className="user-list-cell">
@@ -461,7 +467,12 @@ const AdminDashboard: React.FC = () => {
         .v-row-footer { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 700; color: #3b82f6; cursor: pointer; }
 
         .admin-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #1e293b; background: #f1f5f9; font-size: 1.2rem; }
-        .table-header-ctrl { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding: 0 1.25rem; }
+        .table-header-ctrl { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding: 0 1.25rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 1rem; }
+        .table-tabs { display: flex; gap: 1rem; }
+        .tab-item { background: none; border: none; padding: 0.5rem 1rem; font-weight: 800; font-size: 0.9rem; color: #94a3b8; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+        .tab-item:hover { background: #f1f5f9; color: #475569; }
+        .tab-item.active { background: #e0f2fe; color: #0369a1; }
+
         .table-header-ctrl h3 { font-size: 1.2rem; font-weight: 900; color: #1e293b; }
         .text-btn { background: none; border: none; color: #3b82f6; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: opacity 0.2s; }
         .text-btn:hover { opacity: 0.7; }
