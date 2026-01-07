@@ -11,7 +11,8 @@ const ProtectedRoute: React.FC<{
   children: React.ReactNode;
   allowedRoles?: string[];
 }> = ({ children, allowedRoles }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, logout } = useAuth();
+  const isAdminPortal = window.location.hostname.includes('admin-');
 
   if (loading) return (
     <div className="loading-screen">
@@ -22,6 +23,12 @@ const ProtectedRoute: React.FC<{
 
   if (!currentUser) return <Navigate to="/login" />;
 
+  // Block non-admins from the admin subdomain even if they bypass HomeRedirect
+  if (isAdminPortal && currentUser.role !== 'Admin') {
+    logout();
+    return <Navigate to="/login" />;
+  }
+
   if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
     return <Navigate to="/" />;
   }
@@ -30,8 +37,23 @@ const ProtectedRoute: React.FC<{
 };
 
 const HomeRedirect = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
+  const isAdminPortal = window.location.hostname.includes('admin-');
+
   if (!currentUser) return <Navigate to="/login" />;
+
+  // Enforce subdomain restrictions
+  if (isAdminPortal && currentUser.role !== 'Admin') {
+    // If a non-admin is on the admin portal, kick them out
+    logout();
+    return <Navigate to="/login" />;
+  }
+
+  if (!isAdminPortal && currentUser.role === 'Admin') {
+    // Optional: Redirect admin to their dedicated domain if they land on the regular site
+    // For now, just show them the admin dashboard or student view
+    return <Navigate to="/admin" />;
+  }
 
   switch (currentUser.role) {
     case 'Admin': return <Navigate to="/admin" />;
