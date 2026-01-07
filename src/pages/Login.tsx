@@ -46,15 +46,18 @@ const Login: React.FC = () => {
       return;
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
     // REGULAR USER LOGIN LOGIC
-    if (!email.toLowerCase().endsWith('@actvet.gov.ae')) {
+    if (!cleanEmail.endsWith('@actvet.gov.ae')) {
       setError('Access restricted to validated @actvet.gov.ae accounts only.');
       return;
     }
 
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       const fbUser = userCredential.user;
 
       // 1. Verify existence in Institutional Active Directory (Firestore)

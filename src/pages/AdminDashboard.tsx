@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db, firebaseConfig } from '../lib/firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
 import { collection, getDocs, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, Eye, EyeOff } from 'lucide-react';
 import type { User, VoucherLevel, Role } from '../types';
@@ -48,7 +48,13 @@ const AdminDashboard: React.FC = () => {
 
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Start: Account & Profile Provisioning...");
+
+        // 1. Check if email already exists in our Firestore 'Active Directory' cache
+        const localDuplicate = users.find(u => u.email.toLowerCase() === newUserEmail.toLowerCase());
+        if (localDuplicate) {
+            alert(`⚠️ Entry Exists\nThe email ${newUserEmail} is already assigned to ${localDuplicate.name} (${localDuplicate.role}).`);
+            return;
+        }
 
         if (!newUserEmail.endsWith('@actvet.gov.ae')) {
             alert('⚠️ Domain Violation\nInstitutional access only permitted for @actvet.gov.ae');
@@ -56,8 +62,6 @@ const AdminDashboard: React.FC = () => {
         }
 
         setProvisionLoading(true);
-
-        // Initialize an isolated Firebase instance for user creation
         const tempAppName = `temp-provisioner-${Date.now()}`;
         let tempApp: any = null;
 
@@ -65,16 +69,32 @@ const AdminDashboard: React.FC = () => {
             tempApp = initializeApp(firebaseConfig, tempAppName);
             const tempAuth = getAuth(tempApp);
 
-            console.log("1/2: Creating Firebase Auth Credentials...");
+            let uid: string;
+            let isRecovery = false;
 
-            // Create a timeout race to prevent infinite 'Processing' state
-            const authPromise = createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth Timeout')), 10000));
+            try {
+                console.log("1/2: Attempting to create Auth credentials...");
+                const authPromise = createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth Timeout')), 10000));
+                const userCredential: any = await Promise.race([authPromise, timeoutPromise]);
+                uid = userCredential.user.uid;
+            } catch (authErr: any) {
+                if (authErr.code === 'auth/email-already-in-use') {
+                    console.log("Email exists in Auth. Attempting Profile Recovery...");
+                    // Try to sign in to get the UID so we can fix the Firestore document
+                    try {
+                        const recoverCredential = await signInWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
+                        uid = recoverCredential.user.uid;
+                        isRecovery = true;
+                    } catch (signInErr: any) {
+                        throw new Error(`CONFLICT: User exists in Firebase but the password provided is incorrect. Update the password in Firebase Console or use the correct one to sync.`);
+                    }
+                } else {
+                    throw authErr;
+                }
+            }
 
-            const userCredential: any = await Promise.race([authPromise, timeoutPromise]);
-            const uid = userCredential.user.uid;
-
-            console.log(`2/2: Mapping UID ${uid} to Firestore Profile...`);
+            console.log(`2/2: ${isRecovery ? 'Recovering' : 'Mapping'} UID ${uid} to Firestore Profile...`);
             const userData = {
                 id: uid,
                 name: newUserName,
@@ -89,25 +109,26 @@ const AdminDashboard: React.FC = () => {
 
             await setDoc(doc(db, 'Users', uid), userData);
 
-            console.log("Provisioning Protocol Complete.");
-
+            console.log("Protocol Complete.");
             setNewUserName('');
             setNewUserEmail('');
             setNewUserPassword('');
 
             await authSignOut(tempAuth);
             await fetchData();
-            alert(`✅ SUCCESS\nAccount created for ${newUserName}.`);
+            alert(isRecovery
+                ? `🛠️ RECOVERY SUCCESS\nProfile restored for ${newUserName}. They are now visible and synced.`
+                : `✅ SUCCESS\nAccount & Profile created for ${newUserName}.`
+            );
         } catch (err: any) {
             console.error("Provisioning Error Details:", err);
 
-            // FALLBACK: If Auth fails but Firestore is reachable, we might want to know
             if (err.message === 'Auth Timeout') {
-                alert('❌ Connection Timeout\nThe server is taking too long to respond. Please check your internet connection or Firebase setup.');
-            } else if (err.code === 'auth/email-already-in-use') {
-                alert('❌ Task Failed: This email is already registered.');
+                alert('❌ Connection Timeout\nThe server is taking too long to respond.');
+            } else if (err.message.includes('CONFLICT')) {
+                alert(err.message);
             } else {
-                alert(`❌ Error: ${err.message || 'Check browser console for details'}`);
+                alert(`❌ System Error: ${err.message || 'Check browser console'}`);
             }
         } finally {
             setProvisionLoading(false);
@@ -260,36 +281,44 @@ const AdminDashboard: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {users.filter(u => roleFilter === 'All' || u.role === roleFilter).map(user => (
-                                        <tr key={user.id}>
-                                            <td>
-                                                <div className="user-list-cell">
-                                                    <div className="u-init">{user.name.charAt(0)}</div>
-                                                    <div className="u-info">
-                                                        <span className="u-name">{user.name}</span>
-                                                        <span className="u-email">{user.email}</span>
+                                    {users.filter(u => roleFilter === 'All' || u.role === roleFilter).length > 0 ? (
+                                        users.filter(u => roleFilter === 'All' || u.role === roleFilter).map(user => (
+                                            <tr key={user.id}>
+                                                <td>
+                                                    <div className="user-list-cell">
+                                                        <div className="u-init">{user.name.charAt(0)}</div>
+                                                        <div className="u-info">
+                                                            <span className="u-name">{user.name}</span>
+                                                            <span className="u-email">{user.email}</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span className={`admin-role-badge ${user.role.toLowerCase()}`}>{user.role}</span>
-                                            </td>
-                                            <td>
-                                                <div className="pass-cell">
-                                                    {showPasswords ? (
-                                                        <span className="pass-plain">{user.password || 'N/A'}</span>
-                                                    ) : (
-                                                        <span className="pass-masked">••••••••</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <button className="row-action-btn red" onClick={() => handleRemoveUser(user.id)} title="Delete User">
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                </td>
+                                                <td>
+                                                    <span className={`admin-role-badge ${user.role.toLowerCase()}`}>{user.role}</span>
+                                                </td>
+                                                <td>
+                                                    <div className="pass-cell">
+                                                        {showPasswords ? (
+                                                            <span className="pass-plain">{user.password || 'N/A'}</span>
+                                                        ) : (
+                                                            <span className="pass-masked">••••••••</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <button className="row-action-btn red" onClick={() => handleRemoveUser(user.id)} title="Delete User">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={4} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                                                No {roleFilter !== 'All' ? roleFilter + 's' : 'users'} found in the directory.
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                             </table>
                         </div>
