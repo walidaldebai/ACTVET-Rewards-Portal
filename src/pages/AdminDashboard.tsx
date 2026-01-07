@@ -18,6 +18,7 @@ const AdminDashboard: React.FC = () => {
     const [newUserEmail, setNewUserEmail] = useState('');
     const [newUserPassword, setNewUserPassword] = useState('');
     const [newUserRole, setNewUserRole] = useState<Role>('Student');
+    const [provisionLoading, setProvisionLoading] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -40,29 +41,40 @@ const AdminDashboard: React.FC = () => {
 
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("Submit triggered. Data:", { newUserName, newUserEmail, newUserRole });
+
         if (!newUserEmail.endsWith('@actvet.gov.ae')) {
             alert('⚠️ Invalid Domain\nAll user emails must end with @actvet.gov.ae');
             return;
         }
 
+        setProvisionLoading(true);
         try {
             const userData = {
                 name: newUserName,
                 email: newUserEmail,
                 role: newUserRole,
-                password: newUserPassword, // Stored for admin view
+                password: newUserPassword,
                 grade: newUserRole === 'Student' ? 9 : null,
                 points: newUserRole === 'Student' ? 0 : null,
+                createdAt: new Date().toISOString()
             };
 
-            await addDoc(collection(db, 'Users'), userData);
+            console.log("Attempting Firestore write to 'Users'...");
+            const docRef = await addDoc(collection(db, 'Users'), userData);
+            console.log("Success! Document ID:", docRef.id);
+
             setNewUserName('');
             setNewUserEmail('');
             setNewUserPassword('');
-            fetchData();
-            alert('✅ User Provisioned in Firestore');
-        } catch (error) {
-            alert('Error adding user: ' + error);
+
+            await fetchData();
+            alert('✅ User Provisioned Successfully');
+        } catch (err: any) {
+            console.error("Critical Firestore Error:", err);
+            alert(`❌ Error: ${err.message || 'Check connection'}`);
+        } finally {
+            setProvisionLoading(false);
         }
     };
 
@@ -176,7 +188,9 @@ const AdminDashboard: React.FC = () => {
                                     <option value="Admin">Administrator</option>
                                 </select>
                             </div>
-                            <button type="submit" className="btn-admin-primary">Provision User</button>
+                            <button type="submit" className="btn-admin-primary" disabled={provisionLoading}>
+                                {provisionLoading ? 'Processing Access...' : 'Provision User'}
+                            </button>
                         </form>
 
                         <div className="table-header-ctrl">
