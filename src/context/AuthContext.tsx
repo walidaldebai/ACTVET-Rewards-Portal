@@ -8,6 +8,7 @@ interface AuthContextType {
     currentUser: User | null;
     loading: boolean;
     logout: () => Promise<void>;
+    setAdminUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,6 +18,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Check for persistent local admin session first
+        const savedAdmin = localStorage.getItem('actvet_admin_session');
+        if (savedAdmin) {
+            setCurrentUser(JSON.parse(savedAdmin));
+            setLoading(false);
+            return;
+        }
+
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 // Check domain
@@ -38,13 +47,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             ...userDoc.data(),
                         } as User);
                     } else {
-                        // If user exists in Auth but not in Firestore, we might need to handle it
-                        // For now, allow but with minimal info, or logout if strict
                         setCurrentUser({
                             id: fbUser.uid,
                             email: fbUser.email,
                             name: fbUser.displayName || 'User',
-                            role: 'Student', // Default or handle error
+                            role: 'Student',
                         } as User);
                     }
                 } catch (error) {
@@ -59,10 +66,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return unsubscribe;
     }, []);
 
-    const logout = () => signOut(auth);
+    const setAdminUser = (user: User) => {
+        setCurrentUser(user);
+        localStorage.setItem('actvet_admin_session', JSON.stringify(user));
+    };
+
+    const logout = async () => {
+        localStorage.removeItem('actvet_admin_session');
+        await signOut(auth);
+        setCurrentUser(null);
+    };
 
     return (
-        <AuthContext.Provider value={{ currentUser, loading, logout }}>
+        <AuthContext.Provider value={{ currentUser, loading, logout, setAdminUser }}>
             {!loading && children}
         </AuthContext.Provider>
     );

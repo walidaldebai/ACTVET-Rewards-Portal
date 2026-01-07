@@ -7,12 +7,12 @@ import { useAuth } from '../context/AuthContext';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [adminKey, setAdminKey] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, setAdminUser } = useAuth();
 
   // Detect if we are on the dedicated admin subdomain
   const isAdminPortal = window.location.hostname.includes('admin-');
@@ -27,14 +27,27 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    if (!email.toLowerCase().endsWith('@actvet.gov.ae')) {
-      setError('Access restricted to validated @actvet.gov.ae accounts only.');
+    if (isAdminPortal) {
+      // MASTER ADMIN LOGIN LOGIC
+      setLoading(true);
+      if (username === 'Walid' && password === 'walidisEPIC@1234567890') {
+        setAdminUser({
+          id: 'admin-walid',
+          name: 'Walid (Master Admin)',
+          email: 'walid@actvet.gov.ae',
+          role: 'Admin'
+        });
+        navigate('/');
+      } else {
+        setError('Invalid Master Admin credentials.');
+        setLoading(false);
+      }
       return;
     }
 
-    // Special verification for the Admin Portal
-    if (isAdminPortal && adminKey !== 'ACTVET-2026-ADMIN') {
-      setError('Invalid Admin Security Key. Access Denied.');
+    // REGULAR USER LOGIN LOGIC
+    if (!email.toLowerCase().endsWith('@actvet.gov.ae')) {
+      setError('Access restricted to validated @actvet.gov.ae accounts only.');
       return;
     }
 
@@ -67,7 +80,7 @@ const Login: React.FC = () => {
               <h1>{isAdminPortal ? 'System Governance & Control' : 'The Future of Student Rewards'}</h1>
               <p>
                 {isAdminPortal
-                  ? 'Authorized administrator access only. Manage users, configure rewards, and monitor system performance.'
+                  ? 'Authorized administrator login. Access full system controls, user management, and rewards configuration.'
                   : 'Join the ecosystem that celebrates excellence, dedication, and academic achievement through tangible rewards.'}
               </p>
             </div>
@@ -75,11 +88,11 @@ const Login: React.FC = () => {
             <div className="feature-badges">
               <div className="f-badge">
                 <BadgeCheck size={20} />
-                <span>{isAdminPortal ? 'Admin Protocol' : 'Verified Governance'}</span>
+                <span>{isAdminPortal ? 'Master Access' : 'Verified Governance'}</span>
               </div>
               <div className="f-badge">
                 <Zap size={20} />
-                <span>{isAdminPortal ? 'Real-time Sync' : 'Instant Redemptions'}</span>
+                <span>{isAdminPortal ? 'System Override' : 'Instant Redemptions'}</span>
               </div>
             </div>
           </div>
@@ -94,23 +107,38 @@ const Login: React.FC = () => {
         <div className="login-form-side">
           <div className="form-wrapper">
             <div className="form-header-v2">
-              <h2>{isAdminPortal ? 'Admin Secure Login' : 'Secure Access'}</h2>
-              <p>{isAdminPortal ? 'Verify your administrative credentials' : 'Enter your institutional credentials to proceed'}</p>
+              <h2>{isAdminPortal ? 'Master Administrator' : 'Secure Access'}</h2>
+              <p>{isAdminPortal ? 'Identify via secure username protocol' : 'Enter your institutional credentials to proceed'}</p>
             </div>
 
             <form onSubmit={handleLogin} className="auth-form">
-              <div className="auth-group">
-                <label>Institutional Email</label>
-                <div className="input-with-icon">
-                  <input
-                    type="email"
-                    placeholder="name@actvet.gov.ae"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+              {!isAdminPortal ? (
+                <div className="auth-group">
+                  <label>Institutional Email</label>
+                  <div className="input-with-icon">
+                    <input
+                      type="email"
+                      placeholder="name@actvet.gov.ae"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="auth-group">
+                  <label>Master Admin Username</label>
+                  <div className="input-with-icon">
+                    <input
+                      type="text"
+                      placeholder="Enter Admin Username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="auth-group">
                 <label>Access Password</label>
@@ -125,21 +153,6 @@ const Login: React.FC = () => {
                 </div>
               </div>
 
-              {isAdminPortal && (
-                <div className="auth-group admin-key-group animate-fade-in">
-                  <label className="text-secondary">Admin Security Key</label>
-                  <div className="input-with-icon">
-                    <input
-                      type="password"
-                      placeholder="ENTER MASTER KEY"
-                      value={adminKey}
-                      onChange={(e) => setAdminKey(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-
               {error && (
                 <div className="auth-error animate-shake">
                   <ShieldAlert size={20} />
@@ -152,7 +165,7 @@ const Login: React.FC = () => {
                   <div className="loader-v2"></div>
                 ) : (
                   <>
-                    <span>{isAdminPortal ? 'Authorize System Access' : 'Authenticate Access'}</span>
+                    <span>{isAdminPortal ? 'Access Command Center' : 'Authenticate Access'}</span>
                     <LogIn size={20} />
                   </>
                 )}
@@ -160,11 +173,11 @@ const Login: React.FC = () => {
             </form>
 
             <div className="form-footer-v2">
-              <p>{isAdminPortal ? 'WARNING: Unauthorized admin attempts are logged via IP.' : 'Unauthorized access is strictly prohibited and monitored.'}</p>
+              <p>{isAdminPortal ? 'MASTER CONSOLE • ACTVET GOVERNANCE v2.0' : 'Unauthorized access is strictly prohibited and monitored.'}</p>
               <div className="social-links-dummy">
-                <span>System Status: Online</span>
+                <span>Status: SECURE</span>
                 <span className="dot">•</span>
-                <span>v2.1.0-STABLE</span>
+                <span>ENC: AES-256</span>
               </div>
             </div>
           </div>
