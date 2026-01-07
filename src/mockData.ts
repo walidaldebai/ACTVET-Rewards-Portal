@@ -1,4 +1,4 @@
-import { User, VoucherLevel, Task } from './types';
+import type { User, VoucherLevel, Task } from './types';
 
 export const mockUsers: User[] = [
     {
