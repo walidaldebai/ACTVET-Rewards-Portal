@@ -57,19 +57,23 @@ const AdminDashboard: React.FC = () => {
         setProvisionLoading(true);
 
         // Initialize an isolated Firebase instance for user creation
-        // This prevents the current Admin from being logged out by the Auth redirect
         const tempAppName = `temp-provisioner-${Date.now()}`;
-        const tempApp = initializeApp(firebaseConfig, tempAppName);
-        const tempAuth = getAuth(tempApp);
+        let tempApp: any = null;
 
         try {
+            tempApp = initializeApp(firebaseConfig, tempAppName);
+            const tempAuth = getAuth(tempApp);
+
             console.log("1/2: Creating Firebase Auth Credentials...");
-            // 1. Create the user in Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
+
+            // Create a timeout race to prevent infinite 'Processing' state
+            const authPromise = createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth Timeout')), 10000));
+
+            const userCredential: any = await Promise.race([authPromise, timeoutPromise]);
             const uid = userCredential.user.uid;
 
             console.log(`2/2: Mapping UID ${uid} to Firestore Profile...`);
-            // 2. Link the UID to a Firestore Document in the 'Users' collection
             const userData = {
                 id: uid,
                 name: newUserName,
@@ -86,35 +90,33 @@ const AdminDashboard: React.FC = () => {
 
             console.log("Provisioning Protocol Complete.");
 
-            // Cleanup
             setNewUserName('');
             setNewUserEmail('');
             setNewUserPassword('');
 
-            // Sign out the temp user immediately and delete the temp app
             await authSignOut(tempAuth);
-
             await fetchData();
-            alert(`✅ SUCCESS\nAccount created for ${newUserName}.\nThey can now login with their email and password.`);
+            alert(`✅ SUCCESS\nAccount created for ${newUserName}.`);
         } catch (err: any) {
             console.error("Provisioning Error Details:", err);
-            let userMessage = 'System Error: ';
 
-            if (err.code === 'auth/email-already-in-use') {
-                userMessage += 'This email is already registered in the system.';
-            } else if (err.code === 'auth/weak-password') {
-                userMessage += 'The password is too weak. Must be at least 6 characters.';
-            } else if (err.code === 'permission-denied') {
-                userMessage += 'Firestore Permission Denied. Check Security Rules.';
+            // FALLBACK: If Auth fails but Firestore is reachable, we might want to know
+            if (err.message === 'Auth Timeout') {
+                alert('❌ Connection Timeout\nThe server is taking too long to respond. Please check your internet connection or Firebase setup.');
+            } else if (err.code === 'auth/email-already-in-use') {
+                alert('❌ Task Failed: This email is already registered.');
             } else {
-                userMessage += err.message || 'Network/Server Timeout. Ensure your API Key is valid.';
+                alert(`❌ Error: ${err.message || 'Check browser console for details'}`);
             }
-
-            alert(userMessage);
         } finally {
             setProvisionLoading(false);
-            // Delete the temp app to release resources
-            if (tempApp) deleteApp(tempApp).catch(console.error);
+            if (tempApp) {
+                try {
+                    await deleteApp(tempApp);
+                } catch (e) {
+                    console.error("Error deleting temp app:", e);
+                }
+            }
         }
     };
 
