@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { mockUsers, mockTasks } from '../mockData';
-import { Users, PlusCircle, CheckCircle, Filter, Award, Search, LogOut } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, getDocs, doc, updateDoc, increment, addDoc, query, where } from 'firebase/firestore';
+import { Users, PlusCircle, CheckCircle, Filter, Award, Search, LogOut, RefreshCw } from 'lucide-react';
 import type { User, Grade, Task } from '../types';
 
 const TeacherDashboard: React.FC = () => {
     const { currentUser, logout } = useAuth();
     const [selectedGrade, setSelectedGrade] = useState<Grade | 'All'>('All');
-    const [students, setStudents] = useState<User[]>(mockUsers.filter(u => u.role === 'Student'));
-    const [tasks, setTasks] = useState<Task[]>(mockTasks);
+    const [students, setStudents] = useState<User[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [loading, setLoading] = useState(true);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskPoints, setNewTaskPoints] = useState(50);
     const [newTaskGrade, setNewTaskGrade] = useState<Grade>(11);
@@ -19,34 +21,85 @@ const TeacherDashboard: React.FC = () => {
         : students.filter(s => s.grade === selectedGrade)
     ).filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const handleAddPoints = (studentId: string, amount: number) => {
-        setStudents(prev => prev.map(s =>
-            s.id === studentId ? { ...s, points: (s.points || 0) + amount } : s
-        ));
-        console.log(`Added ${amount} points to student ${studentId}`);
+    React.useEffect(() => {
+        fetchLiveData();
+    }, []);
+
+    const fetchLiveData = async () => {
+        setLoading(true);
+        try {
+            const studentQuery = query(collection(db, 'Users'), where('role', '==', 'Student'));
+            const studentSnap = await getDocs(studentQuery);
+            const taskSnap = await getDocs(collection(db, 'Tasks'));
+
+            setStudents(studentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+            setTasks(taskSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task)));
+        } catch (error) {
+            console.error("Live Sync Error:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleCreateTask = (e: React.FormEvent) => {
+    const handleAddPoints = async (studentId: string, amount: number) => {
+        try {
+            const userRef = doc(db, 'Users', studentId);
+            await updateDoc(userRef, {
+                points: increment(amount)
+            });
+            setStudents(prev => prev.map(s =>
+                s.id === studentId ? { ...s, points: (s.points || 0) + amount } : s
+            ));
+        } catch (error) {
+            alert('Update failed. Check connection.');
+        }
+    };
+
+    const handleCreateTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        const task: Task = {
-            id: Math.random().toString(36).substr(2, 9),
+        const taskData = {
             title: newTaskTitle,
-            description: 'Newly created task via Teacher Portal',
+            description: 'Assigned Task via ACTVET Teacher Portal',
             points: newTaskPoints,
             grade: newTaskGrade,
             assignedBy: currentUser?.id || '',
             status: 'Pending',
+            createdAt: new Date().toISOString()
         };
-        setTasks([task, ...tasks]);
-        setNewTaskTitle('');
-        alert('✨ Task Posted!\nYour students can now view and complete this task.');
+
+        try {
+            const docRef = await addDoc(collection(db, 'Tasks'), taskData);
+            setTasks([{ id: docRef.id, ...taskData } as Task, ...tasks]);
+            setNewTaskTitle('');
+            alert('✨ Task Posted Live to Student Portals!');
+        } catch (error) {
+            alert('Failed to post task.');
+        }
     };
 
-    const handleApproveTask = (taskId: string) => {
+    const handleApproveTask = async (taskId: string) => {
         const task = tasks.find(t => t.id === taskId);
         if (task && task.studentId) {
-            handleAddPoints(task.studentId, task.points);
-            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'Approved' } : t));
+            try {
+                // Update Student Points
+                const userRef = doc(db, 'Users', task.studentId);
+                await updateDoc(userRef, {
+                    points: increment(task.points)
+                });
+
+                // Update Task Status
+                const taskRef = doc(db, 'Tasks', taskId);
+                await updateDoc(taskRef, {
+                    status: 'Approved'
+                });
+
+                setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'Approved' } : t));
+                setStudents(prev => prev.map(s =>
+                    s.id === task.studentId ? { ...s, points: (s.points || 0) + task.points } : s
+                ));
+            } catch (error) {
+                alert('Approval failed.');
+            }
         }
     };
 
@@ -101,6 +154,10 @@ const TeacherDashboard: React.FC = () => {
                         <p>Welcome back, manage your students and distribute reward points.</p>
                     </div>
                     <div className="header-actions">
+                        <div className="sync-pill">
+                            <RefreshCw size={14} className={loading ? 'spin' : ''} />
+                            <span>{loading ? 'READING DATA' : 'SYNCED'}</span>
+                        </div>
                         <div className="search-bar glass-card">
                             <Search size={18} />
                             <input
@@ -250,6 +307,22 @@ const TeacherDashboard: React.FC = () => {
           min-height: 100vh;
           background: #f1f5f9;
         }
+
+        .sync-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: white;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            margin-right: 1.5rem;
+        }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         /* Sidebar */
         .sidebar {

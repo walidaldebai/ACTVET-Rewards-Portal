@@ -1,17 +1,49 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { mockVouchers, mockTasks } from '../mockData';
-import { Wallet, Ticket, Lock, ArrowRight, ClipboardList, TrendingUp, Bell } from 'lucide-react';
-import type { VoucherLevel } from '../types';
+import { db } from '../lib/firebase';
+import { collection, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
+import { Wallet, Ticket, Lock, ArrowRight, ClipboardList, TrendingUp, Bell, RefreshCw } from 'lucide-react';
+import type { VoucherLevel, Task } from '../types';
 
 const StudentDashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
   const [points, setPoints] = useState(currentUser?.points || 0);
+  const [vouchers, setVouchers] = useState<VoucherLevel[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleRedeem = (voucher: VoucherLevel) => {
-    if (points >= voucher.pointCost) {
-      setPoints(prev => prev - voucher.pointCost);
-      alert(`🎉 Redempton Successful!\nYour digital code for ${voucher.name} has been generated.`);
+  React.useEffect(() => {
+    fetchLiveData();
+  }, []);
+
+  const fetchLiveData = async () => {
+    setLoading(true);
+    try {
+      const vSnap = await getDocs(collection(db, 'Voucher_Levels'));
+      const tSnap = await getDocs(collection(db, 'Tasks'));
+
+      setVouchers(vSnap.docs.map(d => ({ id: d.id, ...d.data() } as VoucherLevel)));
+      setTasks(tSnap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
+    } catch (err) {
+      console.error("Live Sync Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRedeem = async (voucher: VoucherLevel) => {
+    if (points >= voucher.pointCost && currentUser?.id) {
+      try {
+        const userRef = doc(db, 'Users', currentUser.id);
+        await updateDoc(userRef, {
+          points: increment(-voucher.pointCost)
+        });
+
+        setPoints(prev => prev - voucher.pointCost);
+        alert(`🎉 Redemption Successful!\nYour digital code for ${voucher.name} has been generated.`);
+      } catch (err) {
+        alert("Transaction failed. Check connection.");
+      }
     }
   };
 
@@ -31,6 +63,10 @@ const StudentDashboard: React.FC = () => {
           </div>
 
           <div className="nav-user">
+            <div className="sync-status-indicator">
+              <RefreshCw size={14} className={loading ? 'spin' : ''} />
+              <span>{loading ? 'SYNCING' : 'LIVE'}</span>
+            </div>
             <button className="notification-btn">
               <Bell size={20} />
               <span className="notify-dot"></span>
@@ -86,7 +122,7 @@ const StudentDashboard: React.FC = () => {
             </div>
 
             <div className="vouchers-grid">
-              {mockVouchers.map((voucher) => {
+              {vouchers.length > 0 ? vouchers.map((voucher) => {
                 const isLocked = points < voucher.pointCost;
                 const progress = Math.min((points / voucher.pointCost) * 100, 100);
 
@@ -98,7 +134,7 @@ const StudentDashboard: React.FC = () => {
                     </div>
                     <div className="v-card-mid">
                       <h3>{voucher.name}</h3>
-                      <p>{voucher.description}</p>
+                      <p>{voucher.description || 'ACTVET Institutional Reward'}</p>
                     </div>
                     <div className="v-card-bottom">
                       <div className="v-progress-wrapper">
@@ -124,7 +160,9 @@ const StudentDashboard: React.FC = () => {
                     </div>
                   </div>
                 );
-              })}
+              }) : (
+                <div className="empty-state">No vouchers currently configured.</div>
+              )}
             </div>
           </section>
 
@@ -139,7 +177,7 @@ const StudentDashboard: React.FC = () => {
             </div>
 
             <div className="tasks-container">
-              {mockTasks.filter(t => t.grade === currentUser?.grade).map(task => (
+              {tasks.length > 0 ? tasks.filter(t => t.grade === currentUser?.grade).map(task => (
                 <div key={task.id} className="task-row glass-card">
                   <div className="task-indicator">
                     <div className="indicator-pulse"></div>
@@ -153,7 +191,9 @@ const StudentDashboard: React.FC = () => {
                     <button className="task-view-btn">View Task</button>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="empty-state">No tasks assigned for Grade {currentUser?.grade} yet.</div>
+              )}
             </div>
           </section>
         </div>
@@ -165,6 +205,32 @@ const StudentDashboard: React.FC = () => {
           background: #f8fafc;
           padding-top: 90px;
           padding-bottom: 50px;
+        }
+
+        .sync-status-indicator {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1rem;
+          background: #f1f5f9;
+          border-radius: 50px;
+          font-size: 0.75rem;
+          font-weight: 800;
+          color: #64748b;
+          border: 1px solid #e2e8f0;
+        }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .empty-state {
+          grid-column: 1 / -1;
+          padding: 3rem;
+          text-align: center;
+          background: white;
+          border-radius: 24px;
+          border: 1px dashed #cbd5e1;
+          color: #94a3b8;
+          font-weight: 600;
         }
 
         /* Navigation */

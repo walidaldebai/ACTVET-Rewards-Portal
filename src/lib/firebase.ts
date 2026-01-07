@@ -6,7 +6,7 @@ import { getFirestore } from 'firebase/firestore';
 // The appId provided: 1:869336678838:web:7e96a0c5fde5c24a444117
 // Firebase Configuration for ACTVET Rewards Portal
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyD-YOUR-REAL-KEY-HERE",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC4waaHNqlpSvqVAH3KM8ybbP-nKxMuxjo",
     authDomain: "actvet-rewards.firebaseapp.com",
     projectId: "actvet-rewards",
     storageBucket: "actvet-rewards.appspot.com",
