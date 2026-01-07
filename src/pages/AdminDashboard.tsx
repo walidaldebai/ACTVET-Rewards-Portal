@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../lib/firebase';
-import { collection, getDocs, doc, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { db, firebaseConfig } from '../lib/firebase';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
+import { collection, getDocs, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, Eye, EyeOff } from 'lucide-react';
 import type { User, VoucherLevel, Role } from '../types';
 
@@ -12,6 +14,7 @@ const AdminDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [editingVoucher, setEditingVoucher] = useState<string | null>(null);
     const [showPasswords, setShowPasswords] = useState(false);
+    const [systemStatus, setSystemStatus] = useState<'connected' | 'error' | 'syncing'>('syncing');
 
     // User Mgmt State
     const [newUserName, setNewUserName] = useState('');
@@ -26,14 +29,17 @@ const AdminDashboard: React.FC = () => {
 
     const fetchData = async () => {
         setLoading(true);
+        setSystemStatus('syncing');
         try {
             const userSnap = await getDocs(collection(db, 'Users'));
             const voucherSnap = await getDocs(collection(db, 'Voucher_Levels'));
 
             setUsers(userSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
             setVouchers(voucherSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoucherLevel)));
+            setSystemStatus('connected');
         } catch (error) {
             console.error("Error fetching admin data:", error);
+            setSystemStatus('error');
         } finally {
             setLoading(false);
         }
@@ -41,40 +47,74 @@ const AdminDashboard: React.FC = () => {
 
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Submit triggered. Data:", { newUserName, newUserEmail, newUserRole });
+        console.log("Start: Account & Profile Provisioning...");
 
         if (!newUserEmail.endsWith('@actvet.gov.ae')) {
-            alert('⚠️ Invalid Domain\nAll user emails must end with @actvet.gov.ae');
+            alert('⚠️ Domain Violation\nInstitutional access only permitted for @actvet.gov.ae');
             return;
         }
 
         setProvisionLoading(true);
+
+        // Initialize an isolated Firebase instance for user creation
+        // This prevents the current Admin from being logged out by the Auth redirect
+        const tempAppName = `temp-provisioner-${Date.now()}`;
+        const tempApp = initializeApp(firebaseConfig, tempAppName);
+        const tempAuth = getAuth(tempApp);
+
         try {
+            console.log("1/2: Creating Firebase Auth Credentials...");
+            // 1. Create the user in Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
+            const uid = userCredential.user.uid;
+
+            console.log(`2/2: Mapping UID ${uid} to Firestore Profile...`);
+            // 2. Link the UID to a Firestore Document in the 'Users' collection
             const userData = {
+                id: uid,
                 name: newUserName,
                 email: newUserEmail,
                 role: newUserRole,
                 password: newUserPassword,
                 grade: newUserRole === 'Student' ? 9 : null,
                 points: newUserRole === 'Student' ? 0 : null,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                status: 'Active'
             };
 
-            console.log("Attempting Firestore write to 'Users'...");
-            const docRef = await addDoc(collection(db, 'Users'), userData);
-            console.log("Success! Document ID:", docRef.id);
+            await setDoc(doc(db, 'Users', uid), userData);
 
+            console.log("Provisioning Protocol Complete.");
+
+            // Cleanup
             setNewUserName('');
             setNewUserEmail('');
             setNewUserPassword('');
 
+            // Sign out the temp user immediately and delete the temp app
+            await authSignOut(tempAuth);
+
             await fetchData();
-            alert('✅ User Provisioned Successfully');
+            alert(`✅ SUCCESS\nAccount created for ${newUserName}.\nThey can now login with their email and password.`);
         } catch (err: any) {
-            console.error("Critical Firestore Error:", err);
-            alert(`❌ Error: ${err.message || 'Check connection'}`);
+            console.error("Provisioning Error Details:", err);
+            let userMessage = 'System Error: ';
+
+            if (err.code === 'auth/email-already-in-use') {
+                userMessage += 'This email is already registered in the system.';
+            } else if (err.code === 'auth/weak-password') {
+                userMessage += 'The password is too weak. Must be at least 6 characters.';
+            } else if (err.code === 'permission-denied') {
+                userMessage += 'Firestore Permission Denied. Check Security Rules.';
+            } else {
+                userMessage += err.message || 'Network/Server Timeout. Ensure your API Key is valid.';
+            }
+
+            alert(userMessage);
         } finally {
             setProvisionLoading(false);
+            // Delete the temp app to release resources
+            if (tempApp) deleteApp(tempApp).catch(console.error);
         }
     };
 
@@ -113,9 +153,9 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </div>
                     <div className="admin-actions">
-                        <div className="sys-status">
+                        <div className={`sys-status ${systemStatus}`}>
                             <div className="status-dot"></div>
-                            <span>LIVE DATA SYNC</span>
+                            <span>{systemStatus === 'connected' ? 'LIVE DATA SYNC' : systemStatus === 'syncing' ? 'SYNCING...' : 'CONNECTION REJECTED'}</span>
                         </div>
                         <button onClick={logout} className="admin-logout-btn">
                             <span>Secure Logout</span>
@@ -423,9 +463,18 @@ const AdminDashboard: React.FC = () => {
         .table-header-ctrl h3 { font-size: 1.2rem; font-weight: 900; color: #1e293b; }
         .text-btn { background: none; border: none; color: #3b82f6; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: opacity 0.2s; }
         .text-btn:hover { opacity: 0.7; }
+        .sys-status.connected .status-dot { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
+        .sys-status.syncing .status-dot { background: #3b82f6; animation: status-pulse 1.5s infinite; }
+        .sys-status.error .status-dot { background: #ef4444; }
+        .sys-status.error span { color: #ef4444; animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        
+        @keyframes status-pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
         .pass-cell { min-width: 120px; }
         .pass-plain { font-family: monospace; font-weight: 700; color: #0f172a; background: #e2e8f0; padding: 0.2rem 0.6rem; border-radius: 6px; }
         .pass-masked { color: #94a3b8; letter-spacing: 2px; }
+
+        .btn-admin-primary:disabled { opacity: 0.6; cursor: wait; transform: none !important; }
 
         @media (max-width: 1280px) {
           .admin-nav { padding: 0 2rem; }
