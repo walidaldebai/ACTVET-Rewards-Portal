@@ -18,14 +18,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check for persistent local admin session first
-        const savedAdmin = localStorage.getItem('actvet_admin_session');
-        if (savedAdmin) {
-            setCurrentUser(JSON.parse(savedAdmin));
-            setLoading(false);
-            return;
-        }
-
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 // Check domain
@@ -68,11 +60,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const setAdminUser = (user: User) => {
         setCurrentUser(user);
-        localStorage.setItem('actvet_admin_session', JSON.stringify(user));
     };
 
     const logout = async () => {
-        localStorage.removeItem('actvet_admin_session');
         await signOut(auth);
         setCurrentUser(null);
     };

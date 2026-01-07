@@ -1,49 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { mockUsers, mockVouchers } from '../mockData';
-import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, ExternalLink } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, getDocs, doc, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, Eye, EyeOff } from 'lucide-react';
 import type { User, VoucherLevel, Role } from '../types';
 
 const AdminDashboard: React.FC = () => {
     const { logout } = useAuth();
-    const [users, setUsers] = useState<User[]>(mockUsers);
-    const [vouchers, setVouchers] = useState<VoucherLevel[]>(mockVouchers);
+    const [users, setUsers] = useState<User[]>([]);
+    const [vouchers, setVouchers] = useState<VoucherLevel[]>([]);
+    const [loading, setLoading] = useState(true);
     const [editingVoucher, setEditingVoucher] = useState<string | null>(null);
+    const [showPasswords, setShowPasswords] = useState(false);
 
     // User Mgmt State
     const [newUserName, setNewUserName] = useState('');
     const [newUserEmail, setNewUserEmail] = useState('');
+    const [newUserPassword, setNewUserPassword] = useState('');
     const [newUserRole, setNewUserRole] = useState<Role>('Student');
 
-    const handleAddUser = (e: React.FormEvent) => {
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const userSnap = await getDocs(collection(db, 'Users'));
+            const voucherSnap = await getDocs(collection(db, 'Voucher_Levels'));
+
+            setUsers(userSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+            setVouchers(voucherSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoucherLevel)));
+        } catch (error) {
+            console.error("Error fetching admin data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newUserEmail.endsWith('@actvet.gov.ae')) {
             alert('⚠️ Invalid Domain\nAll user emails must end with @actvet.gov.ae');
             return;
         }
-        const newUser: User = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: newUserName,
-            email: newUserEmail,
-            role: newUserRole,
-            grade: newUserRole === 'Student' ? 9 : undefined,
-            points: newUserRole === 'Student' ? 0 : undefined,
-        };
-        setUsers([...users, newUser]);
-        setNewUserName('');
-        setNewUserEmail('');
-        alert('✅ User Created\nNew credentials have been generated and would be sent via email.');
-    };
 
-    const handleRemoveUser = (id: string) => {
-        if (confirm('Are you sure you want to remove this user? Access will be revoked immediately.')) {
-            setUsers(users.filter(u => u.id !== id));
+        try {
+            const userData = {
+                name: newUserName,
+                email: newUserEmail,
+                role: newUserRole,
+                password: newUserPassword, // Stored for admin view
+                grade: newUserRole === 'Student' ? 9 : null,
+                points: newUserRole === 'Student' ? 0 : null,
+            };
+
+            await addDoc(collection(db, 'Users'), userData);
+            setNewUserName('');
+            setNewUserEmail('');
+            setNewUserPassword('');
+            fetchData();
+            alert('✅ User Provisioned in Firestore');
+        } catch (error) {
+            alert('Error adding user: ' + error);
         }
     };
 
-    const handleUpdateVoucher = (id: string, updates: Partial<VoucherLevel>) => {
-        setVouchers(vouchers.map(v => v.id === id ? { ...v, ...updates } : v));
+    const handleRemoveUser = async (id: string) => {
+        if (confirm('Are you sure you want to remove this user? Access will be revoked immediately.')) {
+            try {
+                await deleteDoc(doc(db, 'Users', id));
+                fetchData();
+            } catch (error) {
+                alert('Error removing user: ' + error);
+            }
+        }
     };
+
+    const handleUpdateVoucher = async (id: string, updates: Partial<VoucherLevel>) => {
+        try {
+            await updateDoc(doc(db, 'Voucher_Levels', id), updates);
+            setVouchers(vouchers.map(v => v.id === id ? { ...v, ...updates } : v));
+        } catch (error) {
+            alert('Error updating voucher: ' + error);
+        }
+    };
+
+    if (loading) return <div className="admin-loading">Initializing Governance Console...</div>;
 
     return (
         <div className="admin-container">
@@ -54,13 +97,13 @@ const AdminDashboard: React.FC = () => {
                         <ShieldCheck size={28} className="text-secondary" />
                         <div className="brand-titles">
                             <span className="b-main">ACTVET Admin</span>
-                            <span className="b-sub">System Control Panel v1.0</span>
+                            <span className="b-sub">Real-Time System Governance</span>
                         </div>
                     </div>
                     <div className="admin-actions">
                         <div className="sys-status">
                             <div className="status-dot"></div>
-                            <span>Systems Operational</span>
+                            <span>LIVE DATA SYNC</span>
                         </div>
                         <button onClick={logout} className="admin-logout-btn">
                             <span>Secure Logout</span>
@@ -89,15 +132,15 @@ const AdminDashboard: React.FC = () => {
                     <div className="stat-card glass-card">
                         <div className="stat-icon green"><PieChart size={24} /></div>
                         <div className="stat-info">
-                            <span className="s-label">Active Redemptions</span>
-                            <span className="s-value">1,240</span>
+                            <span className="s-label">System State</span>
+                            <span className="s-value">READY</span>
                         </div>
                     </div>
                     <div className="stat-card glass-card">
                         <div className="stat-icon purple"><Key size={24} /></div>
                         <div className="stat-info">
-                            <span className="s-label">API Status</span>
-                            <span className="s-value">Active</span>
+                            <span className="s-label">Firestore</span>
+                            <span className="s-value">CONNECTED</span>
                         </div>
                     </div>
                 </div>
@@ -122,6 +165,10 @@ const AdminDashboard: React.FC = () => {
                                 <input type="email" placeholder="name@actvet.gov.ae" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} required />
                             </div>
                             <div className="input-group">
+                                <label>Temporary Password</label>
+                                <input type="text" placeholder="StartPwd2026!" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} required />
+                            </div>
+                            <div className="input-group">
                                 <label>Assigned Role</label>
                                 <select value={newUserRole} onChange={e => setNewUserRole(e.target.value as Role)}>
                                     <option value="Student">Student</option>
@@ -132,13 +179,21 @@ const AdminDashboard: React.FC = () => {
                             <button type="submit" className="btn-admin-primary">Provision User</button>
                         </form>
 
+                        <div className="table-header-ctrl">
+                            <h3>Active Directory</h3>
+                            <button className="text-btn" onClick={() => setShowPasswords(!showPasswords)}>
+                                {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                                {showPasswords ? 'Hide Passwords' : 'Show Passwords'}
+                            </button>
+                        </div>
+
                         <div className="table-container">
                             <table className="admin-data-table">
                                 <thead>
                                     <tr>
-                                        <th>User</th>
+                                        <th>User Details</th>
                                         <th>Role</th>
-                                        <th>Status</th>
+                                        <th>Credential</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -158,9 +213,12 @@ const AdminDashboard: React.FC = () => {
                                                 <span className={`admin-role-badge ${user.role.toLowerCase()}`}>{user.role}</span>
                                             </td>
                                             <td>
-                                                <div className="status-indicator">
-                                                    <div className="dot active"></div>
-                                                    <span>Active</span>
+                                                <div className="pass-cell">
+                                                    {showPasswords ? (
+                                                        <span className="pass-plain">{user.password || 'N/A'}</span>
+                                                    ) : (
+                                                        <span className="pass-masked">••••••••</span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td>
@@ -182,7 +240,7 @@ const AdminDashboard: React.FC = () => {
                                 <Settings size={22} />
                                 <h2>Global Voucher Config</h2>
                             </div>
-                            <p className="header-hint">Adjust point costs and real-world currency values.</p>
+                            <p className="header-hint">Adjust live voucher points and values.</p>
                         </div>
 
                         <div className="voucher-settings-list">
@@ -195,7 +253,7 @@ const AdminDashboard: React.FC = () => {
                                             ) : (
                                                 <span className="v-level-name">{v.name}</span>
                                             )}
-                                            <span className="v-id">ID: {v.id.toUpperCase()}</span>
+                                            <span className="v-id">SEC: {v.id.substring(0, 8)}</span>
                                         </div>
                                         <div className="v-row-actions">
                                             {editingVoucher === v.id ? (
@@ -223,7 +281,7 @@ const AdminDashboard: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="v-input-field">
-                                            <label>AED Value</label>
+                                            <label>Value</label>
                                             <div className="input-with-label">
                                                 <input
                                                     type="number"
@@ -234,11 +292,6 @@ const AdminDashboard: React.FC = () => {
                                                 <span>AED</span>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="v-row-footer">
-                                        <ExternalLink size={14} />
-                                        <span>View current redemptions for this level</span>
                                     </div>
                                 </div>
                             ))}
@@ -350,6 +403,15 @@ const AdminDashboard: React.FC = () => {
         .input-with-label input { border: none; outline: none; width: 100%; font-weight: 800; font-size: 1.1rem; color: #0f172a; }
         .input-with-label span { font-size: 0.8rem; font-weight: 800; color: #94a3b8; }
         .v-row-footer { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 700; color: #3b82f6; cursor: pointer; }
+
+        .admin-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #1e293b; background: #f1f5f9; font-size: 1.2rem; }
+        .table-header-ctrl { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding: 0 1.25rem; }
+        .table-header-ctrl h3 { font-size: 1.2rem; font-weight: 900; color: #1e293b; }
+        .text-btn { background: none; border: none; color: #3b82f6; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: opacity 0.2s; }
+        .text-btn:hover { opacity: 0.7; }
+        .pass-cell { min-width: 120px; }
+        .pass-plain { font-family: monospace; font-weight: 700; color: #0f172a; background: #e2e8f0; padding: 0.2rem 0.6rem; border-radius: 6px; }
+        .pass-masked { color: #94a3b8; letter-spacing: 2px; }
 
         @media (max-width: 1280px) {
           .admin-nav { padding: 0 2rem; }

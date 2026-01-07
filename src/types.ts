@@ -1,4 +1,4 @@
-export type Role = 'Student' | 'Teacher' | 'Admin';
+ãq!export type Role = 'Student' | 'Teacher' | 'Admin';
 export type Grade = 9 | 10 | 11 | 12;
 
 export interface User {
@@ -9,6 +9,7 @@ export interface User {
   grade?: Grade;
   points?: number;
   subject?: string; // For teachers
+  password?: string; // For admin tracking
 }
 
 export interface VoucherLevel {
