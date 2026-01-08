@@ -4,7 +4,7 @@ import { db, firebaseConfig } from '../lib/firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
 import { collection, getDocs, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, Eye, EyeOff } from 'lucide-react';
+import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import type { User, VoucherLevel, Role } from '../types';
 
 const AdminDashboard: React.FC = () => {
@@ -32,12 +32,30 @@ const AdminDashboard: React.FC = () => {
         setLoading(true);
         setSystemStatus('syncing');
         try {
-            console.log("Admin: Initializing Live Data Fetch from Firestore...");
-            const userSnap = await getDocs(collection(db, 'Users'));
-            const voucherSnap = await getDocs(collection(db, 'Voucher_Levels'));
+            console.log(`Admin Dashboard: Fetching from Project [${firebaseConfig.projectId}]...`);
 
-            const fetchedUsers = userSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-            console.log(`Admin: Successfully fetched ${fetchedUsers.length} users and ${voucherSnap.docs.length} vouchers.`);
+            // Try fetching from BOTH 'Users' and 'users' to be safe
+            const [userSnap, userSnapLower, voucherSnap] = await Promise.all([
+                getDocs(collection(db, 'Users')),
+                getDocs(collection(db, 'users')),
+                getDocs(collection(db, 'Voucher_Levels'))
+            ]);
+
+            // Combine and de-duplicate by ID
+            const rawUsers = [
+                ...userSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)),
+                ...userSnapLower.docs.map(doc => ({ id: doc.id, ...doc.data() } as User))
+            ];
+
+            const uniqueUsersMap = new Map();
+            rawUsers.forEach(u => uniqueUsersMap.set(u.id, u));
+            const fetchedUsers = Array.from(uniqueUsersMap.values());
+
+            console.log(`Admin: Successfully fetched ${fetchedUsers.length} users (${userSnap.docs.length} from 'Users', ${userSnapLower.docs.length} from 'users').`);
+
+            if (fetchedUsers.length === 0) {
+                console.warn(`Admin: No users found in either 'Users' or 'users' collection in project ${firebaseConfig.projectId}.`);
+            }
 
             // Debug Log: Check for any users without roles
             const usersWithoutRoles = fetchedUsers.filter(u => !u.role);
@@ -49,7 +67,7 @@ const AdminDashboard: React.FC = () => {
             setVouchers(voucherSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoucherLevel)));
             setSystemStatus('connected');
         } catch (error: any) {
-            console.error("Admin: Error fetching data from Firestore. Check Security Rules or Project ID.", error);
+            console.error("Admin: Error fetching data from Firestore.", error);
             setSystemStatus('error');
             // If we fail, clarify the error in an alert for the dev
             if (error.code === 'permission-denied') {
@@ -195,8 +213,11 @@ const AdminDashboard: React.FC = () => {
                     <div className="admin-actions">
                         <div className={`sys-status ${systemStatus}`}>
                             <div className="status-dot"></div>
-                            <span>{systemStatus === 'connected' ? 'LIVE DATA SYNC' : systemStatus === 'syncing' ? 'SYNCING...' : 'CONNECTION REJECTED'}</span>
+                            <span>{systemStatus === 'connected' ? `PROJ: ${firebaseConfig.projectId.toUpperCase()}` : systemStatus === 'syncing' ? 'SYNCING...' : 'CONNECTION REJECTED'}</span>
                         </div>
+                        <button onClick={fetchData} className="admin-refresh-btn" title="Force Live Sync">
+                            <RefreshCw size={18} className={systemStatus === 'syncing' ? 'spin' : ''} />
+                        </button>
                         <button onClick={logout} className="admin-logout-btn">
                             <span>Secure Logout</span>
                         </button>
@@ -436,6 +457,11 @@ const AdminDashboard: React.FC = () => {
         .status-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; box-shadow: 0 0 10px #4ade80; }
         .admin-logout-btn { background: rgba(255,255,255,1); color: #0f172a; padding: 0.7rem 1.4rem; border-radius: 12px; font-weight: 800; font-size: 0.85rem; transition: all 0.2s; }
         .admin-logout-btn:hover { background: #fee2e2; color: #ef4444; }
+
+        .admin-refresh-btn { background: rgba(255,255,255,0.1); color: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; }
+        .admin-refresh-btn:hover { background: rgba(255,255,255,0.2); transform: rotate(30deg); }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         /* Main Content */
         .admin-main-content { max-width: 1400px; margin: 0 auto; padding: 3rem 4rem; }

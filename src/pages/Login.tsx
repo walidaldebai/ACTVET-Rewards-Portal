@@ -79,13 +79,16 @@ const Login: React.FC = () => {
       // Success - redirtection is handled by AuthContext/App.tsx
       navigate('/');
     } catch (err: any) {
-      console.error("Login Error:", err.code);
+      console.error("Login Error Object:", err);
+      console.error("Login Error Code:", err.code);
+      console.error("Login Error Message:", err.message);
+
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Invalid credentials. Please check your email and password.');
       } else if (err.code === 'auth/too-many-requests') {
         setError('Too many failed attempts. Account temporarily locked.');
       } else {
-        setError('Authentication failed. Ensure you have an active internet connection.');
+        setError(`Authentication failed: ${err.code || 'Unknown Error'}. Ensure you have an active internet connection.`);
       }
     } finally {
       setLoading(false);
