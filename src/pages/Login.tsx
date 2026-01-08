@@ -15,11 +15,12 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, setAdminUser } = useAuth();
 
-  // Detect if we are on the dedicated admin subdomain
-  const isAdminPortal = window.location.hostname.includes('admin-');
+  // Detect if we are on the dedicated admin subdomain (or localhost for development)
+  const isAdminPortal = window.location.hostname.includes('admin-') || window.location.search.includes('admin=true');
 
   useEffect(() => {
     if (currentUser) {
+      console.log("Login: User detected, navigating home:", currentUser.role);
       navigate('/');
     }
   }, [currentUser, navigate]);
@@ -57,19 +58,23 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
+      console.log(`Login: Attempting Auth for ${cleanEmail}...`);
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       const fbUser = userCredential.user;
+      console.log(`Login: Auth Success. Project/ProjectID: ${auth.app.options.projectId}. UID: ${fbUser.uid}`);
 
       // 1. Verify existence in Institutional Active Directory (Firestore)
+      console.log(`Login: Verifying UID ${fbUser.uid} in Firestore 'Users' collection...`);
       const userDoc = await getDoc(doc(db, 'Users', fbUser.uid));
 
       if (!userDoc.exists()) {
         // Log out immediately if not in our database
         await auth.signOut();
+        console.error(`Login: Access Denied. UID ${fbUser.uid} exists in Auth but MISSING in Firestore 'Users' collection.`);
         setError('Access Denied: Your account is not registered in the Institutional Active Directory. Please contact an administrator.');
-        console.warn(`Unauthorized login attempt by ${email} - UID: ${fbUser.uid}`);
         return;
       }
+      console.log("Login: Profile verified. Proceeding to dashboard.");
 
       // Success - redirtection is handled by AuthContext/App.tsx
       navigate('/');

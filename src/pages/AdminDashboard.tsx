@@ -32,15 +32,29 @@ const AdminDashboard: React.FC = () => {
         setLoading(true);
         setSystemStatus('syncing');
         try {
+            console.log("Admin: Initializing Live Data Fetch from Firestore...");
             const userSnap = await getDocs(collection(db, 'Users'));
             const voucherSnap = await getDocs(collection(db, 'Voucher_Levels'));
 
-            setUsers(userSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+            const fetchedUsers = userSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+            console.log(`Admin: Successfully fetched ${fetchedUsers.length} users and ${voucherSnap.docs.length} vouchers.`);
+
+            // Debug Log: Check for any users without roles
+            const usersWithoutRoles = fetchedUsers.filter(u => !u.role);
+            if (usersWithoutRoles.length > 0) {
+                console.warn(`Admin: Found ${usersWithoutRoles.length} users with missing roles in DB.`, usersWithoutRoles);
+            }
+
+            setUsers(fetchedUsers);
             setVouchers(voucherSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoucherLevel)));
             setSystemStatus('connected');
-        } catch (error) {
-            console.error("Error fetching admin data:", error);
+        } catch (error: any) {
+            console.error("Admin: Error fetching data from Firestore. Check Security Rules or Project ID.", error);
             setSystemStatus('error');
+            // If we fail, clarify the error in an alert for the dev
+            if (error.code === 'permission-denied') {
+                console.error("PERMISSION DENIED: Ensure you have Firestore Rules configured.");
+            }
         } finally {
             setLoading(false);
         }
@@ -95,10 +109,11 @@ const AdminDashboard: React.FC = () => {
             }
 
             console.log(`2/2: ${isRecovery ? 'Recovering' : 'Mapping'} UID ${uid} to Firestore Profile...`);
+            const normalizedEmail = newUserEmail.trim().toLowerCase();
             const userData = {
                 id: uid,
                 name: newUserName,
-                email: newUserEmail,
+                email: normalizedEmail,
                 role: newUserRole,
                 password: newUserPassword,
                 grade: newUserRole === 'Student' ? 9 : null,
@@ -108,6 +123,7 @@ const AdminDashboard: React.FC = () => {
             };
 
             await setDoc(doc(db, 'Users', uid), userData);
+            console.log(`Firestore: Document successfully created for UID ${uid} in collection 'Users'`);
 
             console.log("Protocol Complete.");
             setNewUserName('');

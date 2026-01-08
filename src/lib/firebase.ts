@@ -7,11 +7,11 @@ import { getFirestore } from 'firebase/firestore';
 // Firebase Configuration for ACTVET Rewards Portal
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC4waaHNqlpSvqVAH3KM8ybbP-nKxMuxjo",
-    authDomain: "actvet-rewards.firebaseapp.com",
-    projectId: "actvet-rewards",
-    storageBucket: "actvet-rewards.appspot.com",
-    messagingSenderId: "869336678838",
-    appId: "1:869336678838:web:7e96a0c5fde5c24a444117"
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "actvet-rewards.firebaseapp.com",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "actvet-rewards",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "actvet-rewards.appspot.com",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "869336678838",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:869336678838:web:7e96a0c5fde5c24a444117"
 };
 
 const app = initializeApp(firebaseConfig);

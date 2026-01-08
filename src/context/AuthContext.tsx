@@ -30,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Fetch additional user data from Firestore
                 try {
+                    console.log(`Auth: Session detected for ${fbUser.email}. Project: ${auth.app.options.projectId}. Fetching Firestore profile...`);
                     const userDoc = await getDoc(doc(db, 'Users', fbUser.uid));
                     if (userDoc.exists()) {
                         setCurrentUser({
@@ -38,14 +39,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             name: fbUser.displayName || 'User',
                             ...userDoc.data(),
                         } as User);
+                        console.log("Auth: Profile loaded successfully.");
                     } else {
                         // User exists in Auth but not in our Firestore Registry
-                        console.error("Authenticated user not found in Firestore registry. Access Denied.");
+                        console.error(`Auth Error: UID ${fbUser.uid} not found in Firestore 'Users' collection. Signing out.`);
                         await signOut(auth);
                         setCurrentUser(null);
                     }
                 } catch (error) {
-                    console.error("Error fetching user data:", error);
+                    console.error("Auth: Error fetching user data:", error);
                     setCurrentUser(null);
                 }
             } else {
