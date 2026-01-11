@@ -12,7 +12,7 @@ const ProtectedRoute: React.FC<{
   allowedRoles?: string[];
 }> = ({ children, allowedRoles }) => {
   const { currentUser, loading, logout } = useAuth();
-  const isAdminPortal = window.location.hostname.includes('admin-');
+  const isAdminPortal = window.location.hostname.includes('admin-') || window.location.search.includes('admin=true');
 
   if (loading) return (
     <div className="loading-screen">
@@ -38,7 +38,7 @@ const ProtectedRoute: React.FC<{
 
 const HomeRedirect = () => {
   const { currentUser, logout } = useAuth();
-  const isAdminPortal = window.location.hostname.includes('admin-');
+  const isAdminPortal = window.location.hostname.includes('admin-') || window.location.search.includes('admin=true');
 
   if (!currentUser) return <Navigate to="/login" />;
 

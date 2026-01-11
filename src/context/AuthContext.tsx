@@ -18,6 +18,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Recover manual admin session from storage if it exists
+        const storedAdmin = localStorage.getItem('actvet_admin_session');
+        if (storedAdmin && !currentUser) {
+            try {
+                setCurrentUser(JSON.parse(storedAdmin));
+            } catch (e) {
+                localStorage.removeItem('actvet_admin_session');
+            }
+        }
+
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 if (!fbUser.email?.endsWith('@actvet.gov.ae')) {
@@ -46,7 +56,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setCurrentUser(null);
                 }
             } else {
-                setCurrentUser(null);
+                // If Firebase user is gone, only keep the session if it's a persisted Admin session
+                setCurrentUser(prev => {
+                    const isManualAdmin = localStorage.getItem('actvet_admin_session');
+                    if (isManualAdmin && prev?.role === 'Admin') {
+                        return prev;
+                    }
+                    return null;
+                });
             }
             setLoading(false);
         });
@@ -55,10 +72,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const setAdminUser = (user: User) => {
+        localStorage.setItem('actvet_admin_session', JSON.stringify(user));
         setCurrentUser(user);
     };
 
     const logout = async () => {
+        localStorage.removeItem('actvet_admin_session');
         await signOut(auth);
         setCurrentUser(null);
     };

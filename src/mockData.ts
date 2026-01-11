@@ -27,24 +27,24 @@ export const mockUsers: User[] = [
 export const mockVouchers: VoucherLevel[] = [
     {
         id: 'l1',
-        name: 'Level 1 Voucher',
-        valueAED: 10,
+        name: 'Basic Canteen Credit',
+        creditAmount: 10,
         pointCost: 150,
-        description: 'Digital code generated for 10 AED Canteen credit.',
+        description: 'Digital credit for campus canteen entry-level meals.',
     },
     {
         id: 'l2',
-        name: 'Level 2 Voucher',
-        valueAED: 20,
+        name: 'Standard Canteen Pass',
+        creditAmount: 20,
         pointCost: 280,
-        description: 'Digital code generated for 20 AED Canteen credit.',
+        description: 'Standard institutional meal credit for registered students.',
     },
     {
         id: 'l3',
-        name: 'Level 3 Voucher',
-        valueAED: 50,
+        name: 'Premium Canteen Bundle',
+        creditAmount: 50,
         pointCost: 600,
-        description: 'Digital code + Email to Canteen for 50 AED value.',
+        description: 'High-value canteen credit including specialty beverages and institutional meals.',
     },
 ];
 
@@ -56,7 +56,8 @@ export const mockTasks: Task[] = [
         points: 50,
         grade: 11,
         assignedBy: '2',
-        status: 'Pending',
+        subject: 'Computer Science',
+        createdAt: new Date().toISOString()
     },
     {
         id: 't2',
@@ -65,7 +66,7 @@ export const mockTasks: Task[] = [
         points: 100,
         grade: 12,
         assignedBy: '2',
-        status: 'Approved',
-        studentId: '1',
+        subject: 'Robotics',
+        createdAt: new Date().toISOString()
     },
 ];

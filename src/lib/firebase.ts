@@ -17,8 +17,11 @@ const firebaseConfig = {
     appId: getEnv('VITE_FIREBASE_APP_ID', "1:869336678838:web:7e96a0c5fde5c24a444117")
 };
 
+import { getStorage } from 'firebase/storage';
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getDatabase(app); // Switched to Realtime Database
+export const db = getDatabase(app);
+export const storage = getStorage(app);
 export { firebaseConfig };
 export default app;
