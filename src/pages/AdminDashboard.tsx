@@ -4,7 +4,8 @@ import { db, firebaseConfig } from '../lib/firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
 import { collection, getDocs, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { seedInitialData } from '../lib/seeder';
+import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, Eye, EyeOff, RefreshCw, Database } from 'lucide-react';
 import type { User, VoucherLevel, Role } from '../types';
 
 const AdminDashboard: React.FC = () => {
@@ -15,6 +16,7 @@ const AdminDashboard: React.FC = () => {
     const [editingVoucher, setEditingVoucher] = useState<string | null>(null);
     const [showPasswords, setShowPasswords] = useState(false);
     const [systemStatus, setSystemStatus] = useState<'connected' | 'error' | 'syncing'>('syncing');
+    const [seeding, setSeeding] = useState(false);
 
     // User Mgmt State
     const [newUserName, setNewUserName] = useState('');
@@ -215,6 +217,28 @@ const AdminDashboard: React.FC = () => {
                             <div className="status-dot"></div>
                             <span>{systemStatus === 'connected' ? `PROJ: ${firebaseConfig.projectId.toUpperCase()}` : systemStatus === 'syncing' ? 'SYNCING...' : 'CONNECTION REJECTED'}</span>
                         </div>
+                        <button
+                            onClick={async () => {
+                                if (confirm("Proceed with System Seeding? This will create test accounts and initial rewards if they don't exist.")) {
+                                    setSeeding(true);
+                                    try {
+                                        const res = await seedInitialData();
+                                        alert(`Success!\nUsers Created: ${res.usersCreated}\nVouchers: ${res.vouchersCreated}\nErrors: ${res.errors.length}`);
+                                        fetchData();
+                                    } catch (err: any) {
+                                        alert("Seeding failed: " + err.message);
+                                    } finally {
+                                        setSeeding(false);
+                                    }
+                                }
+                            }}
+                            className="admin-refresh-btn"
+                            style={{ background: '#4f46e5', color: 'white' }}
+                            title="Seed Test Environment"
+                            disabled={seeding}
+                        >
+                            <Database size={18} className={seeding ? 'spin' : ''} />
+                        </button>
                         <button onClick={fetchData} className="admin-refresh-btn" title="Force Live Sync">
                             <RefreshCw size={18} className={systemStatus === 'syncing' ? 'spin' : ''} />
                         </button>
