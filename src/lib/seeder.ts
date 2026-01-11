@@ -1,32 +1,31 @@
 import { db, firebaseConfig } from './firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { ref, set, get, child } from 'firebase/database';
 
 export const seedInitialData = async () => {
-    console.log("Starting System Seeding...");
+    console.log("Starting System Seeding (Realtime DB)...");
     const results = {
         usersCreated: 0,
         vouchersCreated: 0,
         errors: [] as string[]
     };
 
-    // 1. Seed Voucher Levels if empty
+    // 1. Seed Voucher Levels
     try {
-        const voucherSnap = await getDocs(collection(db, 'Voucher_Levels'));
-        if (voucherSnap.empty) {
+        const dbRef = ref(db);
+        const snapshot = await get(child(dbRef, 'Voucher_Levels'));
+        if (!snapshot.exists()) {
             console.log("Seeding Voucher Levels...");
-            const vouchers = [
-                { id: 'v1', name: 'Bronze Reward', valueAED: 50, pointCost: 500, description: 'Basic retail voucher' },
-                { id: 'v2', name: 'Silver Reward', valueAED: 100, pointCost: 900, description: 'Premium dining voucher' },
-                { id: 'v3', name: 'Gold Reward', valueAED: 250, pointCost: 2000, description: 'Luxury hotel/spa voucher' },
-                { id: 'v4', name: 'Platinum Reward', valueAED: 500, pointCost: 3500, description: 'Ultimate experience voucher' }
-            ];
+            const vouchers: Record<string, any> = {
+                'v1': { id: 'v1', name: 'Bronze Reward', valueAED: 50, pointCost: 500, description: 'Basic retail voucher' },
+                'v2': { id: 'v2', name: 'Silver Reward', valueAED: 100, pointCost: 900, description: 'Premium dining voucher' },
+                'v3': { id: 'v3', name: 'Gold Reward', valueAED: 250, pointCost: 2000, description: 'Luxury hotel/spa voucher' },
+                'v4': { id: 'v4', name: 'Platinum Reward', valueAED: 500, pointCost: 3500, description: 'Ultimate experience voucher' }
+            };
 
-            for (const v of vouchers) {
-                await setDoc(doc(db, 'Voucher_Levels', v.id), v);
-                results.vouchersCreated++;
-            }
+            await set(ref(db, 'Voucher_Levels'), vouchers);
+            results.vouchersCreated = 4;
         }
     } catch (e: any) {
         results.errors.push(`Voucher Seed Error: ${e.message}`);
@@ -41,14 +40,12 @@ export const seedInitialData = async () => {
         { name: 'Khalid Student', email: 'khalid.m@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 12, points: 3000 }
     ];
 
-    // 3. Create Users in Auth & Firestore
-    // We need to use a temporary app to avoid logging out the current admin
+    // 3. Create Users
     for (const u of testUsers) {
         const tempApp = initializeApp(firebaseConfig, `seed-app-${Date.now()}-${Math.random()}`);
         const tempAuth = getAuth(tempApp);
 
         try {
-            console.log(`Creating user: ${u.email}`);
             const userCredential = await createUserWithEmailAndPassword(tempAuth, u.email, u.password);
             const uid = userCredential.user.uid;
 
@@ -57,23 +54,19 @@ export const seedInitialData = async () => {
                 name: u.name,
                 email: u.email.toLowerCase(),
                 role: u.role,
-                password: u.password, // Storing for admin dashboard visibility as per existing design
+                password: u.password,
                 grade: u.role === 'Student' ? u.grade : null,
                 points: u.role === 'Student' ? u.points : null,
                 createdAt: new Date().toISOString(),
                 status: 'Active'
             };
 
-            await setDoc(doc(db, 'Users', uid), userData);
+            await set(ref(db, `Users/${uid}`), userData);
             results.usersCreated++;
 
             await signOut(tempAuth);
         } catch (authErr: any) {
-            if (authErr.code === 'auth/email-already-in-use') {
-                console.log(`User ${u.email} already exists in Auth. Skipping...`);
-            } else {
-                results.errors.push(`Error creating ${u.email}: ${authErr.message}`);
-            }
+            results.errors.push(`Error creating ${u.email}: ${authErr.message}`);
         } finally {
             await deleteApp(tempApp);
         }

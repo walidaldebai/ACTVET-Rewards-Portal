@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db, firebaseConfig } from '../lib/firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
-import { collection, getDocs, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
+import { ref, get, set, remove, update, child } from 'firebase/database';
 import { seedInitialData } from '../lib/seeder';
 import { Settings, UserPlus, Trash2, Edit3, Save, X, ShieldCheck, PieChart, Users, Key, Eye, EyeOff, RefreshCw, Database } from 'lucide-react';
 import type { User, VoucherLevel, Role } from '../types';
@@ -18,7 +18,6 @@ const AdminDashboard: React.FC = () => {
     const [systemStatus, setSystemStatus] = useState<'connected' | 'error' | 'syncing'>('syncing');
     const [seeding, setSeeding] = useState(false);
 
-    // User Mgmt State
     const [newUserName, setNewUserName] = useState('');
     const [newUserEmail, setNewUserEmail] = useState('');
     const [newUserPassword, setNewUserPassword] = useState('');
@@ -34,47 +33,31 @@ const AdminDashboard: React.FC = () => {
         setLoading(true);
         setSystemStatus('syncing');
         try {
-            console.log(`Admin Dashboard: Fetching from Project [${firebaseConfig.projectId}]...`);
-
-            // Try fetching from BOTH 'Users' and 'users' to be safe
-            const [userSnap, userSnapLower, voucherSnap] = await Promise.all([
-                getDocs(collection(db, 'Users')),
-                getDocs(collection(db, 'users')),
-                getDocs(collection(db, 'Voucher_Levels'))
+            const dbRef = ref(db);
+            const [userSnap, voucherSnap] = await Promise.all([
+                get(child(dbRef, 'Users')),
+                get(child(dbRef, 'Voucher_Levels'))
             ]);
 
-            // Combine and de-duplicate by ID
-            const rawUsers = [
-                ...userSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)),
-                ...userSnapLower.docs.map(doc => ({ id: doc.id, ...doc.data() } as User))
-            ];
-
-            const uniqueUsersMap = new Map();
-            rawUsers.forEach(u => uniqueUsersMap.set(u.id, u));
-            const fetchedUsers = Array.from(uniqueUsersMap.values());
-
-            console.log(`Admin: Successfully fetched ${fetchedUsers.length} users (${userSnap.docs.length} from 'Users', ${userSnapLower.docs.length} from 'users').`);
-
-            if (fetchedUsers.length === 0) {
-                console.warn(`Admin: No users found in either 'Users' or 'users' collection in project ${firebaseConfig.projectId}.`);
+            const fetchedUsers: User[] = [];
+            if (userSnap.exists()) {
+                userSnap.forEach((child) => {
+                    fetchedUsers.push({ id: child.key, ...child.val() });
+                });
             }
 
-            // Debug Log: Check for any users without roles
-            const usersWithoutRoles = fetchedUsers.filter(u => !u.role);
-            if (usersWithoutRoles.length > 0) {
-                console.warn(`Admin: Found ${usersWithoutRoles.length} users with missing roles in DB.`, usersWithoutRoles);
+            const fetchedVouchers: VoucherLevel[] = [];
+            if (voucherSnap.exists()) {
+                voucherSnap.forEach((child) => {
+                    fetchedVouchers.push({ id: child.key, ...child.val() });
+                });
             }
 
             setUsers(fetchedUsers);
-            setVouchers(voucherSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoucherLevel)));
+            setVouchers(fetchedVouchers);
             setSystemStatus('connected');
         } catch (error: any) {
-            console.error("Admin: Error fetching data from Firestore.", error);
             setSystemStatus('error');
-            // If we fail, clarify the error in an alert for the dev
-            if (error.code === 'permission-denied') {
-                console.error("PERMISSION DENIED: Ensure you have Firestore Rules configured.");
-            }
         } finally {
             setLoading(false);
         }
@@ -82,515 +65,121 @@ const AdminDashboard: React.FC = () => {
 
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        // 1. Check if email already exists in our Firestore 'Active Directory' cache
-        const localDuplicate = users.find(u => u.email.toLowerCase() === newUserEmail.toLowerCase());
-        if (localDuplicate) {
-            alert(`⚠️ Entry Exists\nThe email ${newUserEmail} is already assigned to ${localDuplicate.name} (${localDuplicate.role}).`);
-            return;
-        }
-
-        if (!newUserEmail.endsWith('@actvet.gov.ae')) {
-            alert('⚠️ Domain Violation\nInstitutional access only permitted for @actvet.gov.ae');
-            return;
-        }
-
         setProvisionLoading(true);
-        const tempAppName = `temp-provisioner-${Date.now()}`;
-        let tempApp: any = null;
+        const tempApp = initializeApp(firebaseConfig, `temp-${Date.now()}`);
+        const tempAuth = getAuth(tempApp);
 
         try {
-            tempApp = initializeApp(firebaseConfig, tempAppName);
-            const tempAuth = getAuth(tempApp);
-
-            let uid: string;
-            let isRecovery = false;
-
-            try {
-                console.log("1/2: Attempting to create Auth credentials...");
-                const authPromise = createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth Timeout')), 10000));
-                const userCredential: any = await Promise.race([authPromise, timeoutPromise]);
-                uid = userCredential.user.uid;
-            } catch (authErr: any) {
-                if (authErr.code === 'auth/email-already-in-use') {
-                    console.log("Email exists in Auth. Attempting Profile Recovery...");
-                    // Try to sign in to get the UID so we can fix the Firestore document
-                    try {
-                        const recoverCredential = await signInWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
-                        uid = recoverCredential.user.uid;
-                        isRecovery = true;
-                    } catch (signInErr: any) {
-                        throw new Error(`CONFLICT: User exists in Firebase but the password provided is incorrect. Update the password in Firebase Console or use the correct one to sync.`);
-                    }
-                } else {
-                    throw authErr;
-                }
-            }
-
-            console.log(`2/2: ${isRecovery ? 'Recovering' : 'Mapping'} UID ${uid} to Firestore Profile...`);
-            const normalizedEmail = newUserEmail.trim().toLowerCase();
+            const userCredential = await createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
+            const uid = userCredential.user.uid;
             const userData = {
                 id: uid,
                 name: newUserName,
-                email: normalizedEmail,
+                email: newUserEmail.toLowerCase(),
                 role: newUserRole,
                 password: newUserPassword,
-                grade: newUserRole === 'Student' ? 9 : null,
-                points: newUserRole === 'Student' ? 0 : null,
-                createdAt: new Date().toISOString(),
-                status: 'Active'
+                createdAt: new Date().toISOString()
             };
 
-            await setDoc(doc(db, 'Users', uid), userData);
-            console.log(`Firestore: Document successfully created for UID ${uid} in collection 'Users'`);
-
-            console.log("Protocol Complete.");
+            await set(ref(db, `Users/${uid}`), userData);
             setNewUserName('');
             setNewUserEmail('');
             setNewUserPassword('');
-
             await authSignOut(tempAuth);
-            await fetchData();
-            alert(isRecovery
-                ? `🛠️ RECOVERY SUCCESS\nProfile restored for ${newUserName}. They are now visible and synced.`
-                : `✅ SUCCESS\nAccount & Profile created for ${newUserName}.`
-            );
+            fetchData();
         } catch (err: any) {
-            console.error("Provisioning Error Details:", err);
-
-            if (err.message === 'Auth Timeout') {
-                alert('❌ Connection Timeout\nThe server is taking too long to respond.');
-            } else if (err.message.includes('CONFLICT')) {
-                alert(err.message);
-            } else {
-                alert(`❌ System Error: ${err.message || 'Check browser console'}`);
-            }
+            alert(err.message);
         } finally {
             setProvisionLoading(false);
-            if (tempApp) {
-                try {
-                    await deleteApp(tempApp);
-                } catch (e) {
-                    console.error("Error deleting temp app:", e);
-                }
-            }
+            await deleteApp(tempApp);
         }
     };
 
     const handleRemoveUser = async (id: string) => {
-        if (confirm('Are you sure you want to remove this user? Access will be revoked immediately.')) {
-            try {
-                await deleteDoc(doc(db, 'Users', id));
-                fetchData();
-            } catch (error) {
-                alert('Error removing user: ' + error);
-            }
+        if (confirm('Remove this user?')) {
+            await remove(ref(db, `Users/${id}`));
+            fetchData();
         }
     };
 
-    const handleUpdateVoucher = async (id: string, updates: Partial<VoucherLevel>) => {
-        try {
-            await updateDoc(doc(db, 'Voucher_Levels', id), updates);
-            setVouchers(vouchers.map(v => v.id === id ? { ...v, ...updates } : v));
-        } catch (error) {
-            alert('Error updating voucher: ' + error);
-        }
-    };
-
-    if (loading) return <div className="admin-loading">Initializing Governance Console...</div>;
+    if (loading) return <div className="admin-loading">Loading Realtime Database...</div>;
 
     return (
         <div className="admin-container">
-            {/* Top Professional Header */}
             <nav className="admin-nav premium-gradient">
                 <div className="admin-nav-content">
                     <div className="admin-brand">
                         <ShieldCheck size={28} className="text-secondary" />
-                        <div className="brand-titles">
-                            <span className="b-main">ACTVET Admin</span>
-                            <span className="b-sub">Real-Time System Governance</span>
-                        </div>
+                        <span>ACTVET Admin (Realtime)</span>
                     </div>
                     <div className="admin-actions">
-                        <div className={`sys-status ${systemStatus}`}>
-                            <div className="status-dot"></div>
-                            <span>{systemStatus === 'connected' ? `PROJ: ${firebaseConfig.projectId.toUpperCase()}` : systemStatus === 'syncing' ? 'SYNCING...' : 'CONNECTION REJECTED'}</span>
-                        </div>
-                        <button
-                            onClick={async () => {
-                                if (confirm("Proceed with System Seeding? This will create test accounts and initial rewards if they don't exist.")) {
-                                    setSeeding(true);
-                                    try {
-                                        const res = await seedInitialData();
-                                        alert(`Success!\nUsers Created: ${res.usersCreated}\nVouchers: ${res.vouchersCreated}\nErrors: ${res.errors.length}`);
-                                        fetchData();
-                                    } catch (err: any) {
-                                        alert("Seeding failed: " + err.message);
-                                    } finally {
-                                        setSeeding(false);
-                                    }
-                                }
-                            }}
-                            className="admin-refresh-btn"
-                            style={{ background: '#4f46e5', color: 'white' }}
-                            title="Seed Test Environment"
-                            disabled={seeding}
-                        >
-                            <Database size={18} className={seeding ? 'spin' : ''} />
+                        <button onClick={async () => {
+                            setSeeding(true);
+                            await seedInitialData();
+                            setSeeding(false);
+                            fetchData();
+                        }} className="admin-refresh-btn" style={{ background: '#4f46e5', color: 'white' }}>
+                            <Database size={18} />
                         </button>
-                        <button onClick={fetchData} className="admin-refresh-btn" title="Force Live Sync">
-                            <RefreshCw size={18} className={systemStatus === 'syncing' ? 'spin' : ''} />
-                        </button>
-                        <button onClick={logout} className="admin-logout-btn">
-                            <span>Secure Logout</span>
-                        </button>
+                        <button onClick={fetchData} className="admin-refresh-btn"><RefreshCw size={18} /></button>
+                        <button onClick={logout} className="admin-logout-btn">Logout</button>
                     </div>
                 </div>
             </nav>
 
-            <main className="admin-main-content animate-fade-in">
-                {/* Statistics Bar */}
-                <div className="stats-row">
-                    <div className="stat-card glass-card">
-                        <div className="stat-icon blue"><Users size={24} /></div>
-                        <div className="stat-info">
-                            <span className="s-label">Total Users</span>
-                            <span className="s-value">{users.length}</span>
-                        </div>
+            <main className="admin-main-content">
+                {users.length === 0 && (
+                    <div style={{ background: '#4f46e5', color: 'white', padding: '2rem', borderRadius: '1rem', marginBottom: '2rem', textAlign: 'center' }}>
+                        <h2>Database is Empty</h2>
+                        <p>Click the purple database icon above to seed test accounts.</p>
                     </div>
-                    <div className="stat-card glass-card">
-                        <div className="stat-icon yellow"><Settings size={24} /></div>
-                        <div className="stat-info">
-                            <span className="s-label">Voucher Levels</span>
-                            <span className="s-value">{vouchers.length}</span>
-                        </div>
-                    </div>
-                    <div className="stat-card glass-card">
-                        <div className="stat-icon green"><PieChart size={24} /></div>
-                        <div className="stat-info">
-                            <span className="s-label">System State</span>
-                            <span className="s-value">READY</span>
-                        </div>
-                    </div>
-                    <div className="stat-card glass-card">
-                        <div className="stat-icon purple"><Key size={24} /></div>
-                        <div className="stat-info">
-                            <span className="s-label">Firestore</span>
-                            <span className="s-value">CONNECTED</span>
-                        </div>
-                    </div>
-                </div>
+                )}
 
-                <div className="admin-layout-grid">
-                    {/* User Management Section */}
-                    <section className="admin-card glass-card">
-                        <div className="card-header-box">
-                            <div className="h-left">
-                                <UserPlus size={22} />
-                                <h2>Enroll New Personnel</h2>
-                            </div>
-                        </div>
+                <section className="admin-card glass-card">
+                    <h2>Enroll Personnel</h2>
+                    <form onSubmit={handleAddUser} className="admin-user-form">
+                        <input type="text" placeholder="Name" value={newUserName} onChange={e => setNewUserName(e.target.value)} required />
+                        <input type="email" placeholder="Email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} required />
+                        <input type="text" placeholder="Password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} required />
+                        <select value={newUserRole} onChange={e => setNewUserRole(e.target.value as Role)}>
+                            <option value="Student">Student</option>
+                            <option value="Teacher">Teacher</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                        <button type="submit" disabled={provisionLoading}>Provision User</button>
+                    </form>
+                </section>
 
-                        <form onSubmit={handleAddUser} className="admin-user-form">
-                            <div className="input-group">
-                                <label>Full Legal Name</label>
-                                <input type="text" placeholder="John Doe" value={newUserName} onChange={e => setNewUserName(e.target.value)} required />
-                            </div>
-                            <div className="input-group">
-                                <label>Institutional Email</label>
-                                <input type="email" placeholder="name@actvet.gov.ae" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} required />
-                            </div>
-                            <div className="input-group">
-                                <label>Temporary Password</label>
-                                <input type="text" placeholder="StartPwd2026!" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} required />
-                            </div>
-                            <div className="input-group">
-                                <label>Assigned Role</label>
-                                <select value={newUserRole} onChange={e => setNewUserRole(e.target.value as Role)}>
-                                    <option value="Student">Student</option>
-                                    <option value="Teacher">Teacher/Faculty</option>
-                                    <option value="Admin">Administrator</option>
-                                </select>
-                            </div>
-                            <button type="submit" className="btn-admin-primary" disabled={provisionLoading}>
-                                {provisionLoading ? 'Processing Access...' : 'Provision User'}
-                            </button>
-                        </form>
-
-                        <div className="table-header-ctrl">
-                            <div className="table-tabs">
-                                <button className={`tab-item ${roleFilter === 'All' ? 'active' : ''}`} onClick={() => setRoleFilter('All')}>Overview</button>
-                                <button className={`tab-item ${roleFilter === 'Student' ? 'active' : ''}`} onClick={() => setRoleFilter('Student')}>Students</button>
-                                <button className={`tab-item ${roleFilter === 'Teacher' ? 'active' : ''}`} onClick={() => setRoleFilter('Teacher')}>Faculty</button>
-                                <button className={`tab-item ${roleFilter === 'Admin' ? 'active' : ''}`} onClick={() => setRoleFilter('Admin')}>Admins</button>
-                            </div>
-                            <button className="text-btn" onClick={() => setShowPasswords(!showPasswords)}>
-                                {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
-                                {showPasswords ? 'Hide Passwords' : 'Show Passwords'}
-                            </button>
-                        </div>
-
-                        <div className="table-container">
-                            <table className="admin-data-table">
-                                <thead>
-                                    <tr>
-                                        <th>User Details</th>
-                                        <th>Role</th>
-                                        <th>Credential</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {users.filter(u => roleFilter === 'All' || u.role === roleFilter).length > 0 ? (
-                                        users.filter(u => roleFilter === 'All' || u.role === roleFilter).map(user => (
-                                            <tr key={user.id}>
-                                                <td>
-                                                    <div className="user-list-cell">
-                                                        <div className="u-init">{user.name.charAt(0)}</div>
-                                                        <div className="u-info">
-                                                            <span className="u-name">{user.name}</span>
-                                                            <span className="u-email">{user.email}</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <span className={`admin-role-badge ${user.role.toLowerCase()}`}>{user.role}</span>
-                                                </td>
-                                                <td>
-                                                    <div className="pass-cell">
-                                                        {showPasswords ? (
-                                                            <span className="pass-plain">{user.password || 'N/A'}</span>
-                                                        ) : (
-                                                            <span className="pass-masked">••••••••</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <button className="row-action-btn red" onClick={() => handleRemoveUser(user.id)} title="Delete User">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={4} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
-                                                No {roleFilter !== 'All' ? roleFilter + 's' : 'users'} found in the directory.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    {/* Voucher Configuration Section */}
-                    <section className="admin-card glass-card">
-                        <div className="card-header-box">
-                            <div className="h-left">
-                                <Settings size={22} />
-                                <h2>Global Voucher Config</h2>
-                            </div>
-                            <p className="header-hint">Adjust live voucher points and values.</p>
-                        </div>
-
-                        <div className="voucher-settings-list">
-                            {vouchers.map(v => (
-                                <div key={v.id} className={`voucher-config-row ${editingVoucher === v.id ? 'editing' : ''}`}>
-                                    <div className="v-row-header">
-                                        <div className="v-title-stack">
-                                            {editingVoucher === v.id ? (
-                                                <input className="edit-input" type="text" value={v.name} onChange={e => handleUpdateVoucher(v.id, { name: e.target.value })} />
-                                            ) : (
-                                                <span className="v-level-name">{v.name}</span>
-                                            )}
-                                            <span className="v-id">SEC: {v.id.substring(0, 8)}</span>
-                                        </div>
-                                        <div className="v-row-actions">
-                                            {editingVoucher === v.id ? (
-                                                <>
-                                                    <button className="v-btn save" onClick={() => setEditingVoucher(null)}><Save size={18} /></button>
-                                                    <button className="v-btn cancel" onClick={() => setEditingVoucher(null)}><X size={18} /></button>
-                                                </>
-                                            ) : (
-                                                <button className="v-btn edit" onClick={() => setEditingVoucher(v.id)}><Edit3 size={18} /></button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="v-row-body">
-                                        <div className="v-input-field">
-                                            <label>Point Cost</label>
-                                            <div className="input-with-label">
-                                                <input
-                                                    type="number"
-                                                    disabled={editingVoucher !== v.id}
-                                                    value={v.pointCost}
-                                                    onChange={e => handleUpdateVoucher(v.id, { pointCost: Number(e.target.value) })}
-                                                />
-                                                <span>PTS</span>
-                                            </div>
-                                        </div>
-                                        <div className="v-input-field">
-                                            <label>Value</label>
-                                            <div className="input-with-label">
-                                                <input
-                                                    type="number"
-                                                    disabled={editingVoucher !== v.id}
-                                                    value={v.valueAED}
-                                                    onChange={e => handleUpdateVoucher(v.id, { valueAED: Number(e.target.value) })}
-                                                />
-                                                <span>AED</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                <div className="table-container">
+                    <table className="admin-data-table">
+                        <thead><tr><th>User</th><th>Role</th><th>Password</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            {users.map(user => (
+                                <tr key={user.id}>
+                                    <td>{user.name} ({user.email})</td>
+                                    <td>{user.role}</td>
+                                    <td>{user.password}</td>
+                                    <td><button onClick={() => handleRemoveUser(user.id)}><Trash2 size={16} /></button></td>
+                                </tr>
                             ))}
-                        </div>
-                    </section>
+                        </tbody>
+                    </table>
                 </div>
             </main>
 
             <style>{`
-        .admin-container {
-          min-height: 100vh;
-          background: #f1f5f9;
-        }
-
-        /* Nav */
-        .admin-nav {
-          height: 90px;
-          padding: 0 4rem;
-          display: flex;
-          align-items: center;
-          position: sticky;
-          top: 0;
-          z-index: 1000;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        .admin-nav-content { width: 100%; max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-        .admin-brand { display: flex; align-items: center; gap: 1.25rem; color: white; }
-        .text-secondary { color: #fbbf24; }
-        .brand-titles { display: flex; flex-direction: column; }
-        .b-main { font-weight: 900; font-size: 1.4rem; letter-spacing: -0.5px; line-height: 1; }
-        .b-sub { font-size: 0.75rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; margin-top: 4px; }
-
-        .admin-actions { display: flex; align-items: center; gap: 2.5rem; }
-        .sys-status { display: flex; align-items: center; gap: 0.75rem; background: rgba(255,255,255,0.15); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.8rem; font-weight: 700; color: white; backdrop-filter: blur(10px); }
-        .status-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; box-shadow: 0 0 10px #4ade80; }
-        .admin-logout-btn { background: rgba(255,255,255,1); color: #0f172a; padding: 0.7rem 1.4rem; border-radius: 12px; font-weight: 800; font-size: 0.85rem; transition: all 0.2s; }
-        .admin-logout-btn:hover { background: #fee2e2; color: #ef4444; }
-
-        .admin-refresh-btn { background: rgba(255,255,255,0.1); color: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; }
-        .admin-refresh-btn:hover { background: rgba(255,255,255,0.2); transform: rotate(30deg); }
-        .spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        /* Main Content */
-        .admin-main-content { max-width: 1400px; margin: 0 auto; padding: 3rem 4rem; }
-
-        /* Stats Row */
-        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; margin-bottom: 3.5rem; }
-        .stat-card { padding: 1.5rem 2rem; border-radius: 20px; display: flex; align-items: center; gap: 1.5rem; border: 1px solid #e2e8f0; }
-        .stat-icon { width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: white; }
-        .stat-icon.blue { background: #3b82f6; }
-        .stat-icon.yellow { background: #f59e0b; }
-        .stat-icon.green { background: #10b981; }
-        .stat-icon.purple { background: #8b5cf6; }
-        .s-label { display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase; }
-        .s-value { font-size: 1.5rem; font-weight: 900; color: #0f172a; }
-
-        /* Grid Layout */
-        .admin-layout-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 3rem; }
-        .admin-card { padding: 2.5rem; border-radius: 32px; background: white; border: 1px solid #e2e8f0; }
-        .card-header-box { margin-bottom: 2.5rem; }
-        .h-left { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
-        .h-left h2 { font-size: 1.6rem; font-weight: 900; color: #0f172a; }
-        .header-hint { font-size: 0.95rem; color: #64748b; }
-
-        /* Forms */
-        .admin-user-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 3rem; }
-        .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        .input-group.full { grid-column: span 2; }
-        .input-group label { font-size: 0.85rem; font-weight: 700; color: #475569; }
-        .admin-user-form input, .admin-user-form select { padding: 0.85rem 1.25rem; border-radius: 14px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.95rem; font-weight: 500; }
-        .btn-admin-primary { grid-column: span 2; padding: 1.1rem; border-radius: 16px; background: #0f172a; color: white; font-weight: 800; font-size: 1rem; margin-top: 0.5rem; }
-
-        /* Tables */
-        .table-container { margin-top: 1rem; }
-        .admin-data-table { width: 100%; border-collapse: separate; border-spacing: 0 0.75rem; }
-        .admin-data-table th { text-align: left; padding: 0.75rem 1.25rem; color: #94a3b8; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; }
-        .admin-data-table td { padding: 1.25rem; background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
-        .admin-data-table tr td:first-child { border-left: 1px solid #e2e8f0; border-radius: 16px 0 0 16px; }
-        .admin-data-table tr td:last-child { border-right: 1px solid #e2e8f0; border-radius: 0 16px 16px 0; }
-
-        .user-list-cell { display: flex; align-items: center; gap: 1rem; }
-        .u-init { width: 38px; height: 38px; border-radius: 10px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #475569; }
-        .u-info { display: flex; flex-direction: column; }
-        .u-name { font-weight: 700; font-size: 0.95rem; color: #1e293b; }
-        .u-email { font-size: 0.75rem; color: #64748b; }
-        
-        .admin-role-badge { padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
-        .admin-role-badge.student { background: #e0f2fe; color: #0369a1; }
-        .admin-role-badge.teacher { background: #fef3c7; color: #92400e; }
-        .admin-role-badge.admin { background: #ede9fe; color: #5b21b6; }
-
-        .status-indicator { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 700; color: #10b981; }
-        .status-indicator .dot.active { width: 6px; height: 6px; background: #10b981; border-radius: 50%; }
-
-        /* Voucher Config Rows */
-        .voucher-settings-list { display: flex; flex-direction: column; gap: 1.5rem; }
-        .voucher-config-row { padding: 2rem; border-radius: 24px; background: #f8fafc; border: 1px solid #e2e8f0; transition: all 0.3s ease; }
-        .voucher-config-row.editing { border-color: #3b82f6; background: white; box-shadow: 0 15px 30px rgba(0,0,0,0.05); }
-        .v-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-        .v-title-stack { display: flex; flex-direction: column; }
-        .v-level-name { font-size: 1.3rem; font-weight: 800; color: #0f172a; }
-        .v-id { font-size: 0.7rem; color: #94a3b8; font-weight: 700; }
-        .v-row-actions { display: flex; gap: 0.5rem; }
-        .v-btn { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-        .v-btn.edit { background: white; color: #64748b; border: 1px solid #e2e8f0; }
-        .v-btn.save { background: #10b981; color: white; }
-        .v-btn.cancel { background: #fee2e2; color: #ef4444; }
-
-        .v-row-body { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
-        .v-input-field { display: flex; flex-direction: column; gap: 0.5rem; }
-        .v-input-field label { font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
-        .input-with-label { display: flex; align-items: center; gap: 0.75rem; background: white; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid #e2e8f0; }
-        .input-with-label input { border: none; outline: none; width: 100%; font-weight: 800; font-size: 1.1rem; color: #0f172a; }
-        .input-with-label span { font-size: 0.8rem; font-weight: 800; color: #94a3b8; }
-        .v-row-footer { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 700; color: #3b82f6; cursor: pointer; }
-
-        .admin-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #1e293b; background: #f1f5f9; font-size: 1.2rem; }
-        .table-header-ctrl { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding: 0 1.25rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 1rem; }
-        .table-tabs { display: flex; gap: 1rem; }
-        .tab-item { background: none; border: none; padding: 0.5rem 1rem; font-weight: 800; font-size: 0.9rem; color: #94a3b8; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
-        .tab-item:hover { background: #f1f5f9; color: #475569; }
-        .tab-item.active { background: #e0f2fe; color: #0369a1; }
-
-        .table-header-ctrl h3 { font-size: 1.2rem; font-weight: 900; color: #1e293b; }
-        .text-btn { background: none; border: none; color: #3b82f6; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: opacity 0.2s; }
-        .text-btn:hover { opacity: 0.7; }
-        .sys-status.connected .status-dot { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
-        .sys-status.syncing .status-dot { background: #3b82f6; animation: status-pulse 1.5s infinite; }
-        .sys-status.error .status-dot { background: #ef4444; }
-        .sys-status.error span { color: #ef4444; animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
-        
-        @keyframes status-pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
-        .pass-cell { min-width: 120px; }
-        .pass-plain { font-family: monospace; font-weight: 700; color: #0f172a; background: #e2e8f0; padding: 0.2rem 0.6rem; border-radius: 6px; }
-        .pass-masked { color: #94a3b8; letter-spacing: 2px; }
-
-        .btn-admin-primary:disabled { opacity: 0.6; cursor: wait; transform: none !important; }
-
-        @media (max-width: 1280px) {
-          .admin-nav { padding: 0 2rem; }
-          .admin-main-content { padding: 2rem; }
-          .stats-row { grid-template-columns: 1fr 1fr; }
-          .admin-layout-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
+                .admin-container { padding: 2rem; background: #f8fafc; min-height: 100vh; }
+                .admin-nav { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; background: #0f172a; color: white; border-radius: 12px; margin-bottom: 2rem; }
+                .admin-actions { display: flex; gap: 1rem; }
+                .admin-refresh-btn { padding: 0.5rem; border-radius: 8px; border: none; cursor: pointer; }
+                .admin-card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+                .admin-user-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem; }
+                .admin-user-form input, .admin-user-form select { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; }
+                .admin-user-form button { grid-column: span 2; padding: 1rem; background: #0f172a; color: white; border-radius: 8px; border: none; cursor: pointer; }
+                .admin-data-table { width: 100%; margin-top: 2rem; border-collapse: collapse; }
+                .admin-data-table th, .admin-data-table td { padding: 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+                .admin-loading { display: flex; justify-content: center; align-items: center; height: 100vh; font-weight: bold; }
+            `}</style>
         </div>
     );
 };

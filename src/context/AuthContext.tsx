@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { ref, get, child } from 'firebase/database';
 import { auth, db } from '../lib/firebase';
 import type { User } from '../types';
 
@@ -20,7 +20,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
-                // Check domain
                 if (!fbUser.email?.endsWith('@actvet.gov.ae')) {
                     await signOut(auth);
                     setCurrentUser(null);
@@ -28,21 +27,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
-                // Fetch additional user data from Firestore
                 try {
-                    console.log(`Auth: Session detected for ${fbUser.email}. Project: ${auth.app.options.projectId}. Fetching Firestore profile...`);
-                    const userDoc = await getDoc(doc(db, 'Users', fbUser.uid));
-                    if (userDoc.exists()) {
+                    const dbRef = ref(db);
+                    const snapshot = await get(child(dbRef, `Users/${fbUser.uid}`));
+                    if (snapshot.exists()) {
                         setCurrentUser({
                             id: fbUser.uid,
                             email: fbUser.email,
                             name: fbUser.displayName || 'User',
-                            ...userDoc.data(),
+                            ...snapshot.val(),
                         } as User);
-                        console.log("Auth: Profile loaded successfully.");
                     } else {
-                        // User exists in Auth but not in our Firestore Registry
-                        console.error(`Auth Error: UID ${fbUser.uid} not found in Firestore 'Users' collection. Signing out.`);
                         await signOut(auth);
                         setCurrentUser(null);
                     }
