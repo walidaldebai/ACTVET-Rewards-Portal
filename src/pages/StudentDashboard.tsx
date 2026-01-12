@@ -28,7 +28,7 @@ const detectAI = (text: string) => {
   return aiPatterns.some(p => text.toLowerCase().includes(p));
 };
 
-const InnovatorQuiz: React.FC<{ userId: string, attempts: number, onComplete: (pts: number) => void }> = ({ userId, attempts, onComplete }) => {
+const InnovatorQuiz: React.FC<{ userId: string, attempts: number, onComplete: (pts: number) => void }> = ({ onComplete }) => {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [timer, setTimer] = useState(60);
@@ -302,18 +302,7 @@ const StudentDashboard: React.FC = () => {
   };
 
   // Ranking Logic
-  const getGlobalRank = () => {
-    const sorted = [...allStudents].sort((a, b) => (b.points || 0) - (a.points || 0));
-    const index = sorted.findIndex(s => s.id === currentUser?.id);
-    return index === -1 ? 0 : index + 1;
-  };
 
-  const getClassRank = () => {
-    const classStudents = allStudents.filter(s => s.classId === currentUser?.classId);
-    const sorted = [...classStudents].sort((a, b) => (b.points || 0) - (a.points || 0));
-    const index = sorted.findIndex(s => s.id === currentUser?.id);
-    return index === -1 ? 0 : index + 1;
-  };
 
   const getClassLeaderboard = () => {
     const classStats: Record<string, { id: string, totalPoints: number, studentCount: number }> = {};

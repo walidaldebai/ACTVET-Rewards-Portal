@@ -123,27 +123,7 @@ const TeacherDashboard: React.FC = () => {
         };
     }, [currentUser]);
 
-    const handleAddPoints = async (studentId: string, amount: number) => {
-        try {
-            const student = students.find(s => s.id === studentId);
-            const newPoints = (student?.points || 0) + amount;
-            await update(ref(db, `Users/${studentId}`), { points: newPoints });
 
-            // Track history
-            const historyRef = push(ref(db, 'Point_History'));
-            await set(historyRef, {
-                userId: studentId,
-                points: amount,
-                reason: `Bonus awarded by ${currentUser?.name} (${currentUser?.subject})`,
-                timestamp: new Date().toISOString(),
-                type: 'Awarded'
-            });
-
-            alert(`✨ Successfully awarded ${amount} points to ${student?.name}`);
-        } catch (error) {
-            alert('Update failed.');
-        }
-    };
 
     const handleCreateTask = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -260,7 +240,7 @@ const TeacherDashboard: React.FC = () => {
             await set(historyRef, {
                 userId: studentId,
                 points: amount,
-                reason: `Instructor Adjustment: ${currentUser.subject}`,
+                reason: `Instructor Adjustment: ${currentUser?.subject || 'General'}`,
                 timestamp: new Date().toISOString(),
                 type: amount > 0 ? 'Awarded' : 'Redeemed'
             });
