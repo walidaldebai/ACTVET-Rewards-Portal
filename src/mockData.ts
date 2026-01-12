@@ -26,25 +26,32 @@ export const mockUsers: User[] = [
 
 export const mockVouchers: VoucherLevel[] = [
     {
-        id: 'l1',
-        name: 'Basic Canteen Credit',
+        id: 'v1',
+        name: 'Canteen Voucher (5 AED)',
+        creditAmount: 5,
+        pointCost: 250,
+        description: 'Quick snack or beverage credit',
+    },
+    {
+        id: 'v2',
+        name: 'Canteen Voucher (10 AED)',
         creditAmount: 10,
-        pointCost: 150,
-        description: 'Digital credit for campus canteen entry-level meals.',
+        pointCost: 500,
+        description: 'Standard meal credit',
     },
     {
-        id: 'l2',
-        name: 'Standard Canteen Pass',
+        id: 'v3',
+        name: 'Canteen Voucher (15 AED)',
+        creditAmount: 15,
+        pointCost: 750,
+        description: 'Premium meal combo credit',
+    },
+    {
+        id: 'v4',
+        name: 'Canteen Voucher (20 AED)',
         creditAmount: 20,
-        pointCost: 280,
-        description: 'Standard institutional meal credit for registered students.',
-    },
-    {
-        id: 'l3',
-        name: 'Premium Canteen Bundle',
-        creditAmount: 50,
-        pointCost: 600,
-        description: 'High-value canteen credit including specialty beverages and institutional meals.',
+        pointCost: 1000,
+        description: 'Complete dining experience credit',
     },
 ];
 

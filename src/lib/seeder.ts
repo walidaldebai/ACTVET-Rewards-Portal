@@ -14,10 +14,10 @@ export const seedInitialData = async () => {
     // 1. Seed Voucher Levels (ALWAYS seed if empty or just overwrite to be safe)
     try {
         const vouchers: Record<string, any> = {
-            'v1': { id: 'v1', name: 'Bronze Canteen Credit', creditAmount: 10, pointCost: 500, description: 'Single meal canteen voucher' },
-            'v2': { id: 'v2', name: 'Silver Canteen Credit', creditAmount: 25, pointCost: 900, description: 'Premium meal + beverage bundle' },
-            'v3': { id: 'v3', name: 'Gold Canteen Credit', creditAmount: 50, pointCost: 2000, description: 'Multi-day campus refueling pass' },
-            'v4': { id: 'v4', name: 'Elite Canteen Pass', creditAmount: 100, pointCost: 3500, description: 'Institutional premium catering access' }
+            'v1': { id: 'v1', name: 'Canteen Voucher (5 AED)', creditAmount: 5, pointCost: 250, description: 'Quick snack or beverage credit' },
+            'v2': { id: 'v2', name: 'Canteen Voucher (10 AED)', creditAmount: 10, pointCost: 500, description: 'Standard meal credit' },
+            'v3': { id: 'v3', name: 'Canteen Voucher (15 AED)', creditAmount: 15, pointCost: 750, description: 'Premium meal combo credit' },
+            'v4': { id: 'v4', name: 'Canteen Voucher (20 AED)', creditAmount: 20, pointCost: 1000, description: 'Complete dining experience credit' }
         };
         await set(ref(db, 'Voucher_Levels'), vouchers);
         results.vouchersCreated = 4;

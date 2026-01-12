@@ -1,34 +1,61 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
+  /* Core Brand Colors (extracted from ATS Logo) */
+  --ats-blue: #0ea5e9;
+  /* Cyan-ish blue */
+  --ats-navy: #1e3a8a;
+  /* Deep Blue */
+  --ats-green: #22c55e;
+  /* Vibrant Green */
+
+  /* Theme System */
   --primary: #020617;
+  /* Slate 950 - Deepest Background */
   --primary-light: #0f172a;
-  --accent: #6366f1;
-  --accent-secondary: #8b5cf6;
+  /* Slate 900 - Component Background */
+
+  --accent: var(--ats-blue);
+  --accent-secondary: var(--ats-navy);
+  --success: var(--ats-green);
   --gold: #f59e0b;
-  --gold-light: #fbbf24;
-  --bg-main: #f8fafc;
-  --bg-card: #ffffff;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --border: #e2e8f0;
-  --success: #10b981;
   --danger: #ef4444;
 
-  --radius-sm: 8px;
-  --radius: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
+  /* Backgrounds */
+  --bg-main: #f8fafc;
+  /* Light Mode Main */
+  --bg-card: #ffffff;
+  --bg-input: #f1f5f9;
 
-  --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 25px 50px -12px rgb(0 0 0 / 0.15);
+  /* Typography */
+  --text-main: #020617;
+  --text-muted: #64748b;
+  --text-light: #cbd5e1;
 
-  --premium-gradient: linear-gradient(135deg, #020617 0%, #1e1b4b 100%);
-  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  /* Utilities */
+  --border: #e2e8f0;
+  --radius-sm: 10px;
+  --radius: 18px;
+  --radius-lg: 28px;
+  --radius-xl: 40px;
+
+  /* Premium Shadows (Colored Glows) */
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  --shadow-lg: 0 25px 50px -12px rgba(15, 23, 42, 0.15);
+  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.15);
+  /* Blue Glow */
+
+  /* Gradients */
+  --premium-gradient: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+  --ats-gradient: linear-gradient(135deg, var(--ats-blue) 0%, var(--ats-navy) 100%);
   --gold-gradient: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
-  --glass: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.3);
+  --green-gradient: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+
+  /* Glassmorphism */
+  --glass: rgba(255, 255, 255, 0.8);
+  --glass-dark: rgba(2, 6, 23, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
 }
 
 * {
