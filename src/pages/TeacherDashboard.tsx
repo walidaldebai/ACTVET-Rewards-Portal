@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
 import { ref, set, update, push, child, onValue } from 'firebase/database';
-import { Award } from 'lucide-react';
 import TeacherSidebar from '../components/TeacherSidebar';
 import TeacherHeader from '../components/TeacherHeader';
 import TeacherOverview from '../components/TeacherOverview';
@@ -54,10 +53,10 @@ const TeacherDashboard: React.FC = () => {
         const usersUnsubscribe = onValue(child(dbRef, 'Users'), (snapshot) => {
             const fetchedStudents: User[] = [];
             if (snapshot.exists()) {
-                snapshot.forEach((child) => {
-                    const userData = child.val();
+                snapshot.forEach((snapChild) => {
+                    const userData = snapChild.val();
                     if (userData.role === 'Student') {
-                        fetchedStudents.push({ id: child.key, ...userData });
+                        fetchedStudents.push({ id: snapChild.key, ...userData });
                     }
                 });
             }
@@ -71,10 +70,10 @@ const TeacherDashboard: React.FC = () => {
         const tasksUnsubscribe = onValue(child(dbRef, 'Tasks'), (snapshot) => {
             const fetchedTasks: Task[] = [];
             if (snapshot.exists()) {
-                snapshot.forEach((child) => {
-                    const t = child.val();
+                snapshot.forEach((snapChild) => {
+                    const t = snapChild.val();
                     if (t.assignedBy === currentUser?.id) {
-                        fetchedTasks.push({ id: child.key, ...t });
+                        fetchedTasks.push({ id: snapChild.key, ...t });
                     }
                 });
             }
@@ -86,10 +85,10 @@ const TeacherDashboard: React.FC = () => {
         const subsUnsubscribe = onValue(child(dbRef, 'Task_Submissions'), (snapshot) => {
             const fetchedSubmissions: TaskSubmission[] = [];
             if (snapshot.exists()) {
-                snapshot.forEach((child) => {
-                    const s = child.val();
+                snapshot.forEach((snapChild) => {
+                    const s = snapChild.val();
                     if (s.subject === currentUser?.subject && s.status === 'Pending') {
-                        fetchedSubmissions.push({ id: child.key, ...s });
+                        fetchedSubmissions.push({ id: snapChild.key, ...s });
                     }
                 });
             }

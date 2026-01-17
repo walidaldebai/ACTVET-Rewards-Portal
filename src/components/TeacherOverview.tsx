@@ -1,6 +1,6 @@
 import React from 'react';
 import { Award } from 'lucide-react';
-import type { User, Task, TaskSubmission } from '../types';
+import type { User, Task, TaskSubmission, Grade, CampusClass } from '../types';
 import TaskForm from './TaskForm';
 import TaskActivity from './TaskActivity';
 
@@ -13,8 +13,8 @@ interface TeacherOverviewProps {
     onSubmit: (e: React.FormEvent) => Promise<void>;
     newTaskTitle: string;
     setNewTaskTitle: (val: string) => void;
-    newTaskGrade: number;
-    setNewTaskGrade: (val: any) => void;
+    newTaskGrade: Grade;
+    setNewTaskGrade: (val: Grade) => void;
     newTaskClassId: string;
     setNewTaskClassId: (val: string) => void;
     newTaskMaxScore: number;
@@ -26,7 +26,7 @@ interface TeacherOverviewProps {
     newTaskFile: File | null;
     setNewTaskFile: (val: File | null) => void;
     uploading: boolean;
-    classes: any[];
+    classes: CampusClass[];
 }
 
 const TeacherOverview: React.FC<TeacherOverviewProps> = ({

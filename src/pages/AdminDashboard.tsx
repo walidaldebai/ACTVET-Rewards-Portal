@@ -2,12 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { auth, db, firebaseConfig } from '../lib/firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signOut as authSignOut, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
 import { ref, set, remove, update, onValue, push } from 'firebase/database';
 import { seedInitialData } from '../lib/seeder';
-import {
-    RefreshCw,
-} from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import AdminHeader from '../components/AdminHeader';
 import AdminOverview from '../components/AdminOverview';
@@ -27,7 +24,6 @@ const AdminDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [dbError, setDbError] = useState<string | null>(null);
     const [seeding, setSeeding] = useState(false);
-    const [reauthenticating, setReauthenticating] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'overview' | 'directory' | 'faculty' | 'classes' | 'analytics' | 'vouchers' | 'redemptions'>('overview');
 
@@ -128,7 +124,7 @@ const AdminDashboard: React.FC = () => {
         const vouchersRef = ref(db, 'Voucher_Levels');
         const vouchersUnsubscribe = onValue(vouchersRef, (snapshot) => {
             const fetched: any[] = [];
-            snapshot.forEach(child => fetched.push({ id: child.key, ...child.val() }));
+            snapshot.forEach(child => { fetched.push({ id: child.key, ...child.val() }); });
             setVouchers(fetched.sort((a, b) => a.pointCost - b.pointCost));
         }, (error) => {
             console.error("Firebase Read Error (Vouchers):", error);
@@ -138,7 +134,7 @@ const AdminDashboard: React.FC = () => {
         const redemptionsRef = ref(db, 'Redemption_Requests');
         const redemptionsUnsubscribe = onValue(redemptionsRef, (snapshot) => {
             const fetched: any[] = [];
-            snapshot.forEach(child => fetched.push({ id: child.key, ...child.val() }));
+            snapshot.forEach(child => { fetched.push({ id: child.key, ...child.val() }); });
             setRedemptions(fetched.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
         }, (error) => {
             console.error("Firebase Read Error (Redemptions):", error);

@@ -1,37 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ref, get, update, push, child, set, onValue } from 'firebase/database';
+import { ref, update, push, set, onValue } from 'firebase/database';
 import { updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import {
-  Ticket,
-  Lock,
-  ClipboardList,
-  TrendingUp,
-  RefreshCw,
   Zap,
-  LogOut,
-  Trophy,
-  Users as UsersIcon,
-  CheckCircle2,
-  XCircle,
-  FileText,
-  Download,
-  Upload,
-  Clock,
   ShieldCheck,
-  ChevronRight,
-  Star,
-  Target,
-  Flame,
-  Award,
-  CalendarCheck,
-  Bell,
-  Settings,
-  Lock as LockIcon,
-  User as UserIcon,
-  Mail,
-  GraduationCap
 } from 'lucide-react';
 import StudentSidebar from '../components/StudentSidebar';
 import InnovatorQuiz from '../components/InnovatorQuiz';
