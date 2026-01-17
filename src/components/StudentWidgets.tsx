@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, Star, Target, Flame, Bell } from 'lucide-react';
+import { Award, Star, Target, Flame, Bell, CalendarCheck } from 'lucide-react';
 import type { User, TaskSubmission, Achievement, Task } from '../types';
 
 interface ProfileWidgetProps {
