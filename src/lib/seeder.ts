@@ -14,10 +14,10 @@ export const seedInitialData = async () => {
     // 1. Seed Voucher Levels (ALWAYS seed if empty or just overwrite to be safe)
     try {
         const vouchers: Record<string, any> = {
-            'v1': { id: 'v1', name: 'Canteen Voucher (5 AED)', aedValue: 5, pointCost: 250, description: 'Quick snack or beverage credit' },
-            'v2': { id: 'v2', name: 'Canteen Voucher (10 AED)', aedValue: 10, pointCost: 500, description: 'Standard meal credit' },
-            'v3': { id: 'v3', name: 'Canteen Voucher (15 AED)', aedValue: 15, pointCost: 750, description: 'Premium meal combo credit' },
-            'v4': { id: 'v4', name: 'Canteen Voucher (20 AED)', aedValue: 20, pointCost: 1000, description: 'Complete dining experience credit' }
+            'v1': { id: 'v1', name: 'Staff Voucher (5 AED)', aedValue: 5, pointCost: 250, description: 'Quick snack or beverage credit' },
+            'v2': { id: 'v2', name: 'Staff Voucher (10 AED)', aedValue: 10, pointCost: 500, description: 'Standard meal credit' },
+            'v3': { id: 'v3', name: 'Staff Voucher (15 AED)', aedValue: 15, pointCost: 750, description: 'Premium meal combo credit' },
+            'v4': { id: 'v4', name: 'Staff Voucher (20 AED)', aedValue: 20, pointCost: 1000, description: 'Complete dining experience credit' }
         };
         await set(ref(db, 'Voucher_Levels'), vouchers);
         results.vouchersCreated = 4;
@@ -60,6 +60,9 @@ export const seedInitialData = async () => {
         { name: 'Ms. Fatima Saeed', email: 'fatima.s@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'English', assignedClasses: ['9-A', '9-B'] },
         { name: 'Mr. Zayed Mansour', email: 'zayed.m@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Computer Science', assignedClasses: ['10-A', '10-B'] },
         { name: 'Dr. Amna Al Ali', email: 'amna.ali@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Chemistry', assignedClasses: ['11-C', '11-D'] },
+        
+        // Staff Workers
+        { name: 'Staff', email: 'staff@actvet.gov.ae', password: 'StaffPass123!', role: 'Staff' },
 
         // Students spread across all seeded classes
         { name: 'Ahmad Rashid', email: 'ahmad.r@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-A', points: 1500 },

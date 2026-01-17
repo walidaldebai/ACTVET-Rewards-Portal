@@ -76,7 +76,12 @@ const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                                     <div className="p-table-user">
                                         <div className="p-table-avatar">{student.name.charAt(0)}</div>
                                         <div className="p-table-info">
-                                            <span className="p-t-name">{student.name}</span>
+                                            <div className="p-t-name-wrapper">
+                                                <span className="p-t-name">{student.name}</span>
+                                                {student.isQuizLocked && (
+                                                    <span className="locked-badge">LOCKED</span>
+                                                )}
+                                            </div>
                                             <span className="p-t-email">{student.email}</span>
                                         </div>
                                     </div>

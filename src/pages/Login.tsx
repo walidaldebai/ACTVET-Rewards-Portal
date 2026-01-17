@@ -50,9 +50,10 @@ const Login: React.FC = () => {
     // Only redirect if the current user matches the portal type
     // This allows a student to access the ?admin=true gate without being kicked back to /student
     if (currentUser) {
-      if (isAdminPortal && currentUser.role === 'Admin') {
+      const isAdmin = currentUser.role === 'Admin' || currentUser.role === 'Super Admin';
+      if (isAdminPortal && isAdmin) {
         navigate('/admin');
-      } else if (!isAdminPortal && currentUser.role !== 'Admin') {
+      } else if (!isAdminPortal && !isAdmin) {
         navigate('/');
       }
     }
@@ -73,7 +74,7 @@ const Login: React.FC = () => {
           // Attempt to sign in to Firebase for database access
           const userCredential = await signInWithEmailAndPassword(auth, username, password);
           
-          // Ensure the user exists in the DB with Admin role
+          // Ensure the user exists in the DB with Super Admin role
           const dbRef = ref(db);
           const snapshot = await get(child(dbRef, `Users/${userCredential.user.uid}`));
           if (!snapshot.exists()) {
@@ -81,7 +82,7 @@ const Login: React.FC = () => {
               id: userCredential.user.uid,
               name: 'Walid (Master Admin)',
               email: MASTER_ADMIN_EMAIL,
-              role: 'Admin',
+              role: 'Super Admin',
               status: 'Active',
               createdAt: new Date().toISOString()
             });
@@ -91,7 +92,7 @@ const Login: React.FC = () => {
             id: userCredential.user.uid,
             name: 'Walid (Master Admin)',
             email: MASTER_ADMIN_EMAIL,
-            role: 'Admin'
+            role: 'Super Admin'
           });
           navigate('/');
         } catch (e: any) {
@@ -102,8 +103,8 @@ const Login: React.FC = () => {
               await set(ref(db, `Users/${userCredential.user.uid}`), {
                 id: userCredential.user.uid,
                 name: 'Walid (Master Admin)',
-                email: 'walid@actvet.gov.ae',
-                role: 'Admin',
+                email: MASTER_ADMIN_EMAIL,
+                role: 'Super Admin',
                 status: 'Active',
                 createdAt: new Date().toISOString()
               });
@@ -111,8 +112,8 @@ const Login: React.FC = () => {
               setAdminUser({
                 id: userCredential.user.uid,
                 name: 'Walid (Master Admin)',
-                email: 'walid@actvet.gov.ae',
-                role: 'Admin'
+                email: MASTER_ADMIN_EMAIL,
+                role: 'Super Admin'
               });
               navigate('/');
             } catch (createErr: any) {
@@ -172,7 +173,7 @@ const Login: React.FC = () => {
               id: userCredential.user.uid,
               name: 'Walid (Master Admin)',
               email: MASTER_ADMIN_EMAIL,
-              role: 'Admin',
+              role: 'Super Admin',
               status: 'Active',
               createdAt: new Date().toISOString()
             });
@@ -181,7 +182,7 @@ const Login: React.FC = () => {
               id: userCredential.user.uid,
               name: 'Walid (Master Admin)',
               email: MASTER_ADMIN_EMAIL,
-              role: 'Admin'
+              role: 'Super Admin'
             });
             navigate('/');
           } catch (createErr: any) {
@@ -205,7 +206,26 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+      let userCredential;
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+      } catch (signInErr: any) {
+        // Auto-provision Staff account if it matches seeded credentials but doesn't exist in Auth
+        if (cleanEmail === 'staff@actvet.gov.ae' && cleanPassword === 'StaffPass123!') {
+          userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+          await set(ref(db, `Users/${userCredential.user.uid}`), {
+            id: userCredential.user.uid,
+            name: 'Staff',
+            email: 'staff@actvet.gov.ae',
+            role: 'Staff',
+            status: 'Active',
+            createdAt: new Date().toISOString()
+          });
+        } else {
+          throw signInErr;
+        }
+      }
+      
       const fbUser = userCredential.user;
 
       const dbRef = ref(db);

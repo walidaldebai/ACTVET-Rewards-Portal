@@ -33,10 +33,13 @@ const FacultyManager: React.FC<FacultyManagerProps> = ({
                             className={`f-item ${selectedTeacherId === teacher.id ? 'active' : ''}`} 
                             onClick={() => setSelectedTeacherId(teacher.id)}
                         >
-                            <div className="f-avatar">{teacher.name.charAt(0)}</div>
+                            <div className={`u-avatar teacher`}>{teacher.name.charAt(0)}</div>
                             <div className="f-info">
-                                <strong>{teacher.name}</strong>
-                                <span>{teacher.subject}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <strong>{teacher.name}</strong>
+                                    <span className="role-badge teacher">TEACHER</span>
+                                </div>
+                                <span className="text-muted" style={{ fontSize: '0.8rem' }}>{teacher.subject}</span>
                             </div>
                             <ChevronRight size={18} className="f-chevron" />
                         </div>

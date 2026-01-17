@@ -19,6 +19,7 @@ interface AdminSidebarProps {
     handleResetPoints: () => void;
     logout: () => void;
     seeding: boolean;
+    role: string;
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({
@@ -27,7 +28,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     runSeed,
     handleResetPoints,
     logout,
-    seeding
+    seeding,
+    role
 }) => {
     return (
         <aside className="a-sidebar glass-card">
@@ -64,21 +66,25 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 </button>
                 <button className={activeTab === 'vouchers' ? 'active' : ''} onClick={() => setActiveTab('vouchers')}>
                     <Ticket size={18} />
-                    <span>Canteen Vouchers</span>
+                    <span>Staff Vouchers</span>
                 </button>
                 <button className={activeTab === 'redemptions' ? 'active' : ''} onClick={() => setActiveTab('redemptions')}>
                     <Bell size={18} />
                     <span>Redemption Requests</span>
                 </button>
 
-                <button onClick={runSeed} className={seeding ? 'spin' : ''}>
-                    <Database size={18} />
-                    <span>Rebuild Data</span>
-                </button>
-                <button onClick={handleResetPoints} className="text-red-hover">
-                    <Trash2 size={18} />
-                    <span>Reset All Points</span>
-                </button>
+                {role === 'Super Admin' && (
+                    <>
+                        <button onClick={runSeed} className={seeding ? 'spin' : ''}>
+                            <Database size={18} />
+                            <span>Rebuild Data</span>
+                        </button>
+                        <button onClick={handleResetPoints} className="text-red-hover">
+                            <Trash2 size={18} />
+                            <span>Reset All Points</span>
+                        </button>
+                    </>
+                )}
             </nav>
 
             <div className="a-sidebar-foot">

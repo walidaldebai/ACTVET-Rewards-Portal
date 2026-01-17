@@ -8,6 +8,7 @@ import TeacherOverview from '../components/TeacherOverview';
 import SubmissionQueue from '../components/SubmissionQueue';
 import StudentDirectory from '../components/StudentDirectory';
 import ResourceVault from '../components/ResourceVault';
+import QuizLockouts from '../components/QuizLockouts';
 import type { User, Grade, Task, TaskSubmission, CampusClass } from '../types';
 import '../styles/TeacherDashboard.css';
 
@@ -21,7 +22,7 @@ const TeacherDashboard: React.FC = () => {
     const [newTaskPoints, setNewTaskPoints] = useState(100);
     const [newTaskGrade, setNewTaskGrade] = useState<Grade>(11);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'students' | 'resources'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'students' | 'resources' | 'lockouts'>('overview');
     const [classes, setClasses] = useState<CampusClass[]>([]);
     const [newTaskClassId, setNewTaskClassId] = useState<string>('');
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('All');
@@ -205,9 +206,9 @@ const TeacherDashboard: React.FC = () => {
                 updates[`Task_Submissions/${submission.id}/maxScore`] = taskMaxScore;
                 updates[`Users/${submission.studentId}/points`] = currentPoints + finalPoints;
 
-                const historyRef = push(ref(db, 'Point_History'));
-                updates[`Point_History/${historyRef.key}`] = {
-                    userId: submission.studentId,
+                const historyRef = push(ref(db, `Point_History/${submission.studentId}`));
+                updates[`Point_History/${submission.studentId}/${historyRef.key}`] = {
+                    studentId: submission.studentId,
                     points: finalPoints,
                     reason: `Task: ${submission.taskTitle} (${score}/${taskMaxScore})`,
                     timestamp: new Date().toISOString(),
@@ -230,9 +231,9 @@ const TeacherDashboard: React.FC = () => {
             const newPoints = (student.points || 0) + amount;
             await update(ref(db, `Users/${studentId}`), { points: newPoints });
 
-            const historyRef = push(ref(db, 'Point_History'));
+            const historyRef = push(ref(db, `Point_History/${studentId}`));
             await set(historyRef, {
-                userId: studentId,
+                studentId: studentId,
                 points: amount,
                 reason: `Instructor Adjustment: ${currentUser?.subject || 'General'}`,
                 timestamp: new Date().toISOString(),
@@ -316,6 +317,15 @@ const TeacherDashboard: React.FC = () => {
                     <ResourceVault 
                         tasks={tasks}
                         handleDeleteTask={handleDeleteTask}
+                    />
+                )}
+
+                {activeTab === 'lockouts' && (
+                    <QuizLockouts 
+                        students={students.filter(s => 
+                            s.isQuizLocked && 
+                            (teacherClasses.length === 0 || teacherClasses.includes(s.classId || ''))
+                        )}
                     />
                 )}
             </main>

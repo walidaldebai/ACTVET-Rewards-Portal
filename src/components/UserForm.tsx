@@ -77,7 +77,9 @@ const UserForm: React.FC<UserFormProps> = ({
                     <select value={newUserRole} onChange={e => setNewUserRole(e.target.value as Role)}>
                         <option value="Student">Student</option>
                         <option value="Teacher">Teacher</option>
-                        <option value="Admin">Admin</option>
+                        <option value="Admin">Admin (Vice Principal)</option>
+                        <option value="Super Admin">Super Admin</option>
+                        <option value="Staff">Staff</option>
                     </select>
                 </div>
                 {newUserRole === 'Teacher' && (

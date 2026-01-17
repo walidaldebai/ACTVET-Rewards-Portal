@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { auth, db, firebaseConfig } from '../lib/firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut as authSignOut } from 'firebase/auth';
-import { ref, set, remove, update, onValue, push } from 'firebase/database';
+import { ref, set, remove, update, onValue, push, query, orderByChild } from 'firebase/database';
 import { seedInitialData } from '../lib/seeder';
 import AdminSidebar from '../components/AdminSidebar';
 import AdminHeader from '../components/AdminHeader';
@@ -14,7 +14,7 @@ import ClassManager from '../components/ClassManager';
 import AnalyticsSection from '../components/AnalyticsSection';
 import VoucherManager from '../components/VoucherManager';
 import RedemptionManager from '../components/RedemptionManager';
-import type { User, Role, Grade, CampusClass } from '../types';
+import type { User, Role, Grade, CampusClass, Redemption } from '../types';
 import '../styles/AdminDashboard.css';
 
 const AdminDashboard: React.FC = () => {
@@ -51,20 +51,21 @@ const AdminDashboard: React.FC = () => {
     const [newVoucherAEDValue, setNewVoucherAEDValue] = useState(10);
 
     // Redemption State
-    const [redemptions, setRedemptions] = useState<any[]>([]);
+    const [redemptions, setRedemptions] = useState<Redemption[]>([]);
 
     // Edit Mode State
     const [editUserId, setEditUserId] = useState<string | null>(null);
+    const [editClassId, setEditClassId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!currentUser || currentUser.role !== 'Admin') return;
+        if (!currentUser || (currentUser.role !== 'Admin' && currentUser.role !== 'Super Admin')) return;
 
         // AUTH LOGGING: Check exact state of Firebase Auth
         console.log("Admin Dashboard: Auth Check", {
             contextUser: currentUser.email,
             firebaseUser: auth.currentUser?.email,
             uid: auth.currentUser?.uid,
-            isMaster: auth.currentUser?.email === 'walid@actvet.gov.ae'
+            role: currentUser.role
         });
 
         if (!auth.currentUser) {
@@ -125,23 +126,34 @@ const AdminDashboard: React.FC = () => {
         const vouchersUnsubscribe = onValue(vouchersRef, (snapshot) => {
             const fetched: any[] = [];
             snapshot.forEach(child => { fetched.push({ id: child.key, ...child.val() }); });
-            setVouchers(fetched.sort((a, b) => a.pointCost - b.pointCost));
+            const sorted = fetched.sort((a, b) => a.pointCost - b.pointCost);
+            setVouchers(sorted);
+            
+            // Proactive cleanup: Rename Canteen to Staff if found in DB data
+            fetched.forEach((v: any) => {
+                if (v.name && v.name.includes('Canteen')) {
+                    const newName = v.name.replace('Canteen', 'Staff');
+                    update(ref(db, `Voucher_Levels/${v.id}`), { name: newName });
+                }
+            });
         }, (error) => {
             console.error("Firebase Read Error (Vouchers):", error);
         });
 
         // Listen for Redemptions
         const redemptionsRef = ref(db, 'Redemption_Requests');
-        const redemptionsUnsubscribe = onValue(redemptionsRef, (snapshot) => {
-            const fetched: any[] = [];
-            snapshot.forEach(child => { fetched.push({ id: child.key, ...child.val() }); });
-            setRedemptions(fetched.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-        }, (error) => {
-            console.error("Firebase Read Error (Redemptions):", error);
+        const redemptionsQuery = query(redemptionsRef, orderByChild('studentId'));
+        const redemptionsUnsubscribe = onValue(redemptionsQuery, (snapshot) => {
+            const fetchedRedemptions: Redemption[] = [];
+            if (snapshot.exists()) {
+                snapshot.forEach((redSnap) => {
+                    fetchedRedemptions.push({ id: redSnap.key!, ...redSnap.val() });
+                });
+            }
+            setRedemptions(fetchedRedemptions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
         });
 
         return () => {
-            console.log("Cleaning up Admin listeners...");
             usersUnsubscribe();
             classesUnsubscribe();
             vouchersUnsubscribe();
@@ -254,7 +266,7 @@ const AdminDashboard: React.FC = () => {
                 name: newVoucherTitle,
                 pointCost: Number(newVoucherCost),
                 aedValue: Number(newVoucherAEDValue),
-                description: `AED ${newVoucherAEDValue} Canteen Credit`,
+                description: `AED ${newVoucherAEDValue} Staff Credit`,
                 minGrade: 0 // Available to all for now
             });
             setNewVoucherTitle('');
@@ -277,35 +289,68 @@ const AdminDashboard: React.FC = () => {
 
     const handleAddClass = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (editClassId) {
+            try {
+                await update(ref(db, `Classes/${editClassId}`), {
+                    name: newClassName,
+                    grade: newClassGrade
+                });
+                alert('Class updated successfully.');
+                setEditClassId(null);
+                setNewClassName('');
+            } catch (err: any) {
+                alert(err.message);
+            }
+            return;
+        }
+
         if (!newClassName) {
             alert('Selection required.');
             return;
         }
 
-        const classId = `${newClassGrade}-${newClassName}`;
+        const classId = `${newClassGrade}${newClassName.toUpperCase().replace(/\s+/g, '-')}`;
         const classRef = ref(db, `Classes/${classId}`);
-
+        
         try {
             await set(classRef, {
+                id: classId,
+                name: newClassName,
                 grade: newClassGrade,
-                name: newClassName
+                createdAt: new Date().toISOString()
             });
             setNewClassName('');
-            alert('🏫 Institutional class created.');
+            alert('Class initialized in institutional registry.');
         } catch (err: any) {
-            console.error("Class Creation Error:", err);
-            const msg = err.message || '';
-            if (msg.toLowerCase().includes('permission_denied')) {
-                alert('🚨 Permission Denied: Please update your Firebase Realtime Database Rules to allow writing to the "Classes" node.');
-            } else {
-                alert(`❌ Failed to create class: ${err.message || 'Unknown Error'}`);
-            }
+            alert(err.message);
         }
+    };
+
+    const startEditClass = (cls: CampusClass) => {
+        setEditClassId(cls.id);
+        setNewClassName(cls.name);
+        setNewClassGrade(cls.grade);
+        setActiveTab('classes');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleRemoveClass = async (id: string) => {
         if (confirm(`Abolish Class ${id}? This will disconnect students and faculty assignments.`)) {
             await remove(ref(db, `Classes/${id}`));
+        }
+    };
+
+    const handleUnlockUser = async (id: string) => {
+        if (confirm('Restore access for this account? Security flags will be cleared.')) {
+            try {
+                await update(ref(db, `Users/${id}`), {
+                    isQuizLocked: false
+                });
+                alert('Account access restored.');
+            } catch (err: any) {
+                alert('Failed to unlock: ' + err.message);
+            }
         }
     };
 
@@ -390,6 +435,19 @@ const AdminDashboard: React.FC = () => {
         u.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const handleProcessRedemption = async (id: string, status: 'Approved' | 'Used' | 'Rejected') => {
+        try {
+            await update(ref(db, `Redemption_Requests/${id}`), { 
+                status,
+                processedAt: new Date().toISOString(),
+                processedBy: currentUser?.name
+            });
+            alert(`Redemption marked as ${status}`);
+        } catch (err: any) {
+            alert("Error updating redemption: " + err.message);
+        }
+    };
+
     if (loading) return (
         <div className="admin-loader-screen">
             <div className="spinner-large"></div>
@@ -408,6 +466,7 @@ const AdminDashboard: React.FC = () => {
                 handleResetPoints={handleResetPoints} 
                 logout={logout} 
                 seeding={seeding} 
+                role={currentUser?.role || 'Admin'}
             />
 
             <main className="a-workspace animate-fade-in">
@@ -481,13 +540,14 @@ const AdminDashboard: React.FC = () => {
 
                 {activeTab === 'directory' && (
                     <UserRegistry 
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
-                        filteredUsers={filteredUsers}
-                        onEdit={startEditUser}
-                        onRemove={handleRemoveUser}
-                        runSeed={runSeed}
-                    />
+                                searchTerm={searchTerm}
+                                setSearchTerm={setSearchTerm}
+                                filteredUsers={filteredUsers}
+                                onEdit={startEditUser}
+                                onRemove={handleRemoveUser}
+                                onUnlock={handleUnlockUser}
+                                runSeed={runSeed}
+                            />
                 )}
 
                 {activeTab === 'faculty' && (
@@ -511,6 +571,12 @@ const AdminDashboard: React.FC = () => {
                         loading={loading}
                         classes={classes}
                         onRemoveClass={handleRemoveClass}
+                        onEditClass={startEditClass}
+                        editClassId={editClassId}
+                        onCancelEdit={() => {
+                            setEditClassId(null);
+                            setNewClassName('');
+                        }}
                     />
                 )}
 
@@ -537,7 +603,7 @@ const AdminDashboard: React.FC = () => {
 
                 {activeTab === 'redemptions' && (
                     <div className="animate-fade-in">
-                        <RedemptionManager redemptions={redemptions} />
+                        <RedemptionManager redemptions={redemptions} onProcess={handleProcessRedemption} />
                         <div style={{ marginTop: '3rem' }}>
                             <VoucherManager 
                                 onSubmit={handleAddVoucher}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, School, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, School, RefreshCw, Trash2, Edit } from 'lucide-react';
 import type { Grade, CampusClass } from '../types';
 
 interface ClassManagerProps {
@@ -11,6 +11,9 @@ interface ClassManagerProps {
     loading: boolean;
     classes: CampusClass[];
     onRemoveClass: (id: string) => Promise<void>;
+    onEditClass: (cls: CampusClass) => void;
+    editClassId: string | null;
+    onCancelEdit: () => void;
 }
 
 const ClassManager: React.FC<ClassManagerProps> = ({
@@ -21,7 +24,10 @@ const ClassManager: React.FC<ClassManagerProps> = ({
     setNewClassName,
     loading,
     classes,
-    onRemoveClass
+    onRemoveClass,
+    onEditClass,
+    editClassId,
+    onCancelEdit
 }) => {
     return (
         <div className="a-classes-section animate-fade-in">
@@ -29,7 +35,7 @@ const ClassManager: React.FC<ClassManagerProps> = ({
                 <section className="a-card glass-card">
                     <div className="a-card-head">
                         <Plus className="text-blue" />
-                        <h2>Create New Class</h2>
+                        <h2>{editClassId ? 'Edit Class' : 'Create New Class'}</h2>
                     </div>
                     <form onSubmit={onSubmit} className="a-form">
                         <div className="f-row">
@@ -46,23 +52,31 @@ const ClassManager: React.FC<ClassManagerProps> = ({
                                 </select>
                             </div>
                             <div className="f-group">
-                                <label>Section Number</label>
-                                <select 
+                                <label>Class Name / Section</label>
+                                <input 
+                                    type="text"
+                                    placeholder="e.g. A, Elite, B-1"
                                     value={newClassName} 
                                     onChange={e => setNewClassName(e.target.value)} 
                                     required
-                                >
-                                    <option value="">Select Section</option>
-                                    <option value="1">Section 1</option>
-                                    <option value="2">Section 2</option>
-                                    <option value="3">Section 3</option>
-                                    <option value="4">Section 4</option>
-                                </select>
+                                />
                             </div>
                         </div>
-                        <button type="submit" className="a-submit-btn accent-gradient">
-                            Initialize Class
-                        </button>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button type="submit" className="a-submit-btn accent-gradient" style={{ flex: 1 }}>
+                                {editClassId ? 'Update Institutional Registry' : 'Initialize Class'}
+                            </button>
+                            {editClassId && (
+                                <button 
+                                    type="button" 
+                                    onClick={onCancelEdit}
+                                    className="a-submit-btn"
+                                    style={{ background: '#f1f5f9', color: '#475569', flex: 1 }}
+                                >
+                                    Cancel
+                                </button>
+                            )}
+                        </div>
                     </form>
                 </section>
 
@@ -84,12 +98,21 @@ const ClassManager: React.FC<ClassManagerProps> = ({
                                     <span className="c-grade">GRADE {c.grade}</span>
                                     <span className="c-id">Class {c.name}</span>
                                 </div>
-                                <button 
-                                    onClick={() => onRemoveClass(c.id)} 
-                                    className="c-delete"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button 
+                                        onClick={() => onEditClass(c)} 
+                                        className="c-delete"
+                                        style={{ background: '#eff6ff', color: '#3b82f6' }}
+                                    >
+                                        <Edit size={16} />
+                                    </button>
+                                    <button 
+                                        onClick={() => onRemoveClass(c.id)} 
+                                        className="c-delete"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                         {classes.length === 0 && (

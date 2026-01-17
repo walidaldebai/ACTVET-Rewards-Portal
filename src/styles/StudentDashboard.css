@@ -558,6 +558,88 @@
 /* Vouchers */
 .vouchers-carousel { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
 
+/* Lockout Overlay */
+.lockout-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(2, 6, 23, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.lockout-card {
+    background: white;
+    width: 100%;
+    max-width: 500px;
+    padding: 3rem;
+    border-radius: 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.lockout-icon {
+    width: 80px;
+    height: 80px;
+    background: #fef2f2;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+
+.lockout-card h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+}
+
+.lockout-card p {
+    font-size: 1rem;
+    color: #64748b;
+    line-height: 1.6;
+}
+
+.lockout-details {
+    background: #f8fafc;
+    padding: 1.25rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.lockout-details p {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.lockout-logout-btn {
+    margin-top: 1rem;
+    padding: 1rem 2rem;
+    background: #0f172a;
+    color: white;
+    border-radius: 12px;
+    font-weight: 700;
+    transition: all 0.2s;
+}
+
+.lockout-logout-btn:hover {
+    background: #ef4444;
+    transform: translateY(-2px);
+}
+
 /* Verification Prompt Banner */
 .verification-prompt-banner {
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Ticket, Trash2 } from 'lucide-react';
+import { Plus, Ticket, Trash2, Gift } from 'lucide-react';
 
 interface VoucherManagerProps {
     onSubmit: (e: React.FormEvent) => Promise<void>;
@@ -32,13 +32,16 @@ const VoucherManager: React.FC<VoucherManagerProps> = ({
                     <h2>Create Voucher</h2>
                 </div>
                 <form onSubmit={onSubmit} className="a-form">
-                    <input 
-                        type="text" 
-                        placeholder="Title (e.g. Free Coffee)" 
-                        value={newVoucherTitle} 
-                        onChange={e => setNewVoucherTitle(e.target.value)} 
-                        required 
-                    />
+                    <div className="f-group">
+                        <label>Voucher Title</label>
+                        <input 
+                            type="text" 
+                            placeholder="e.g. Free Coffee, 10 AED Staff Credit" 
+                            value={newVoucherTitle} 
+                            onChange={e => setNewVoucherTitle(e.target.value)} 
+                            required 
+                        />
+                    </div>
                     <div className="f-row">
                         <div className="f-group">
                             <label>Cost (Points)</label>
@@ -70,36 +73,37 @@ const VoucherManager: React.FC<VoucherManagerProps> = ({
                     <Ticket className="text-purple" />
                     <h2>Current Vouchers</h2>
                 </div>
-                <div className="class-grid-v2">
+                <div className="voucher-coupon-grid">
                     {vouchers.map(v => (
-                        <div 
-                            key={v.id} 
-                            className="class-card-v3 glass-card" 
-                            style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}
-                        >
-                            <div className="c-info">
-                                <span className="c-grade">{v.pointCost} PTS</span>
-                                <span className="c-id">{v.name}</span>
+                        <div key={v.id} className="coupon-card">
+                            <div className="coupon-left">
+                                <div className="coupon-value">{v.aedValue}</div>
+                                <div className="coupon-currency">AED</div>
                             </div>
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                width: '100%', 
-                                alignItems: 'center', 
-                                marginTop: '0.5rem' 
-                            }}>
-                                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700 }}>
-                                    {v.aedValue} AED
-                                </span>
+                            <div className="coupon-divider"></div>
+                            <div className="coupon-right">
+                                <div className="coupon-info">
+                                    <h3 className="coupon-title">{v.name}</h3>
+                                    <p className="coupon-cost">{v.pointCost} Points</p>
+                                </div>
                                 <button 
                                     onClick={() => onDeleteVoucher(v.id)} 
-                                    className="c-delete"
+                                    className="coupon-delete"
+                                    title="Delete Voucher"
                                 >
                                     <Trash2 size={16} />
                                 </button>
                             </div>
+                            <div className="coupon-punch-top"></div>
+                            <div className="coupon-punch-bottom"></div>
                         </div>
                     ))}
+                    {vouchers.length === 0 && (
+                        <div className="no-data-placeholder">
+                            <Gift size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                            <p>No vouchers created yet.</p>
+                        </div>
+                    )}
                 </div>
             </section>
         </div>

@@ -5,13 +5,14 @@ import {
     Users, 
     Archive, 
     BookOpen, 
+    ShieldAlert,
     LogOut 
 } from 'lucide-react';
 import type { User } from '../types';
 
 interface TeacherSidebarProps {
-    activeTab: 'overview' | 'queue' | 'students' | 'resources';
-    setActiveTab: (tab: 'overview' | 'queue' | 'students' | 'resources') => void;
+    activeTab: 'overview' | 'queue' | 'students' | 'resources' | 'lockouts';
+    setActiveTab: (tab: 'overview' | 'queue' | 'students' | 'resources' | 'lockouts') => void;
     currentUser: User | null;
     submissionsCount: number;
     logout: () => void;
@@ -58,6 +59,10 @@ const TeacherSidebar: React.FC<TeacherSidebarProps> = ({
                 <button className={activeTab === 'resources' ? 'active' : ''} onClick={() => setActiveTab('resources')}>
                     <Archive size={20} />
                     <span>Resource Vault</span>
+                </button>
+                <button className={activeTab === 'lockouts' ? 'active' : ''} onClick={() => setActiveTab('lockouts')}>
+                    <ShieldAlert size={20} />
+                    <span>Quiz Resets</span>
                 </button>
             </nav>
 

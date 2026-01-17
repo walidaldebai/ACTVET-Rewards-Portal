@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ref, update, push, set, onValue, child } from 'firebase/database';
+import { ref, update, push, set, onValue, child, query, orderByChild, equalTo } from 'firebase/database';
 import { updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import {
@@ -16,7 +16,7 @@ import SettingsSection from '../components/SettingsSection';
 import HeroBanner from '../components/HeroBanner';
 import { ProfileWidget, AchievementsWidget, DeadlinesWidget, SystemUpdatesWidget } from '../components/StudentWidgets';
 import '../styles/StudentDashboard.css';
-import type { VoucherLevel, Task, TaskSubmission, User, CampusClass, Achievement } from '../types';
+import type { VoucherLevel, Task, TaskSubmission, User, CampusClass, Achievement, Redemption } from '../types';
 
 const StudentDashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -24,6 +24,7 @@ const StudentDashboard: React.FC = () => {
   const [vouchers, setVouchers] = useState<VoucherLevel[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [submissions, setSubmissions] = useState<TaskSubmission[]>([]);
+  const [redemptions, setRedemptions] = useState<Redemption[]>([]);
   const [allStudents, setAllStudents] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState<CampusClass[]>([]);
@@ -35,10 +36,22 @@ const StudentDashboard: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passLoading, setPassLoading] = useState(false);
-  const [isCheatLocked, setIsCheatLocked] = useState(false);
+  const [isCheatLocked, setIsCheatLocked] = useState(currentUser?.isQuizLocked || false);
   const [showWarning, setShowWarning] = useState(false);
 
-  const calculateRank = (userId: string) => {
+  // Sync points and isCheatLocked with currentUser's state
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.isQuizLocked !== undefined) {
+        setIsCheatLocked(currentUser.isQuizLocked);
+      }
+      if (currentUser.points !== undefined) {
+        setPoints(currentUser.points);
+      }
+    }
+  }, [currentUser]);
+
+  const calculateRank = (studentId: string) => {
     if (!currentUser || allStudents.length === 0) return '-';
     // Only rank students who have finished the quiz
     const classMates = allStudents.filter(s => 
@@ -47,16 +60,16 @@ const StudentDashboard: React.FC = () => {
       s.isInnovatorVerified // Only verified innovators are ranked
     );
     const sorted = [...classMates].sort((a, b) => (b.points || 0) - (a.points || 0));
-    const index = sorted.findIndex(s => s.id === userId);
+    const index = sorted.findIndex(s => s.id === studentId);
     return index === -1 ? '-' : index + 1;
   };
 
-  const calculateCampusRank = (userId: string) => {
+  const calculateCampusRank = (studentId: string) => {
     if (!currentUser || allStudents.length === 0) return '-';
     // Only rank students who have finished the quiz
     const verifiedStudents = allStudents.filter(s => s.isInnovatorVerified);
     const sorted = [...verifiedStudents].sort((a, b) => (b.points || 0) - (a.points || 0));
-    const index = sorted.findIndex(s => s.id === userId);
+    const index = sorted.findIndex(s => s.id === studentId);
     return index === -1 ? '-' : index + 1;
   };
 
@@ -130,19 +143,36 @@ const StudentDashboard: React.FC = () => {
       setTasks(fetched);
     });
 
-    // Listen for Submissions
-    const submissionsRef = child(dbRef, 'Task_Submissions');
-    const unsubscribeSubmissions = onValue(submissionsRef, (snapshot) => {
+    // Listen for Submissions (filtered by studentId for rule compliance)
+    const submissionsQuery = query(
+      ref(db, 'Task_Submissions'),
+      orderByChild('studentId'),
+      equalTo(currentUser.id)
+    );
+    const unsubscribeSubmissions = onValue(submissionsQuery, (snapshot) => {
       const fetched: TaskSubmission[] = [];
       if (snapshot.exists()) {
         snapshot.forEach((child) => {
-          const sub = child.val();
-          if (sub.studentId === currentUser.id) {
-            fetched.push({ id: child.key, ...sub });
-          }
+          fetched.push({ id: child.key, ...child.val() });
         });
       }
       setSubmissions(fetched);
+    });
+
+    // Listen for Redemptions (filtered by studentId for rule compliance)
+    const redemptionsQuery = query(
+      ref(db, 'Redemption_Requests'),
+      orderByChild('studentId'),
+      equalTo(currentUser.id)
+    );
+    const unsubscribeRedemptions = onValue(redemptionsQuery, (snapshot) => {
+      const fetched: Redemption[] = [];
+      if (snapshot.exists()) {
+        snapshot.forEach((child) => {
+          fetched.push({ id: child.key, ...child.val() });
+        });
+      }
+      setRedemptions(fetched);
     });
 
     // Listen for All Students (for Leaderboard)
@@ -179,6 +209,7 @@ const StudentDashboard: React.FC = () => {
       unsubscribeVouchers();
       unsubscribeTasks();
       unsubscribeSubmissions();
+      unsubscribeRedemptions();
       unsubscribeUsers();
       unsubscribeClasses();
     };
@@ -204,6 +235,15 @@ const StudentDashboard: React.FC = () => {
       if (document.hidden && currentUser?.role === 'Student' && !isCheatLocked && (isDoingTask || isTakingQuiz)) {
         // User switched tabs - Potential Cheating
         setIsCheatLocked(true);
+        
+        // Persist lock state to database
+        try {
+          await update(ref(db, `Users/${currentUser.id}`), {
+            isQuizLocked: true
+          });
+        } catch (e) {
+          console.error("Failed to persist lock state", e);
+        }
         
         // If they were taking the quiz, we force close it and lock them out
         if (isTakingQuiz) {
@@ -343,47 +383,73 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  const handleRedeem = async (voucher: VoucherLevel) => {
-    if (points >= voucher.pointCost && currentUser?.id) {
-      if (!confirm(`Redeem ${voucher.name} for ${voucher.pointCost} points? This will send a request to the admin.`)) return;
+  const handleRedeem = async (voucher: any) => {
+    if (!currentUser || !auth.currentUser) return;
+    
+    // Safety: Ensure we use the Staff name even if the DB hasn't updated yet
+    const voucherName = voucher.name.replace('Canteen', 'Staff');
+    
+    // Always use the actual auth UID for security rule compliance
+    const studentId = auth.currentUser.uid;
 
+    // Always use the most up-to-date points from currentUser context if available
+    const currentPoints = currentUser.points !== undefined ? currentUser.points : points;
+
+    if (currentPoints < voucher.pointCost) {
+      alert(`Insufficient points. You have ${currentPoints} but need ${voucher.pointCost}.`);
+      return;
+    }
+
+    if (confirm(`Redeem ${voucherName} for ${voucher.pointCost} points?`)) {
       try {
-        const newPoints = points - voucher.pointCost;
+        const newPoints = currentPoints - voucher.pointCost;
+        const redemptionId = `R-${Date.now()}`;
+        const redemptionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        // Ensure aedValue is a number and fallback safely
+        const calculatedAED = Number(voucher.aedValue) || Math.floor(voucher.pointCost / 50);
 
-        // 1. Deduct points
-        await update(ref(db, `Users/${currentUser.id}`), {
-          points: newPoints
-        });
-
-        // 2. Create Redemption Request
-        const requestRef = push(ref(db, 'Redemption_Requests'));
-        await set(requestRef, {
-          studentId: currentUser.id,
+        const redemptionData = {
+          id: redemptionId,
+          studentId: studentId,
           studentName: currentUser.name,
           voucherId: voucher.id,
-          voucherName: voucher.name,
+          voucherName: voucherName,
+          aedValue: calculatedAED,
+          code: redemptionCode,
           timestamp: new Date().toISOString(),
           status: 'Pending'
-        });
+        };
+
+        // Create Point History record
+        const historyRef = push(ref(db, `Point_History/${studentId}`));
+        const historyId = historyRef.key;
+        const historyData = {
+          id: historyId,
+          studentId: studentId,
+          points: -voucher.pointCost,
+          reason: `Redeemed ${voucherName}`,
+          timestamp: new Date().toISOString(),
+          type: 'Redeemed'
+        };
+
+        // Perform atomic update for transactional consistency
+        const updates: any = {};
+        updates[`Redemption_Requests/${redemptionId}`] = redemptionData;
+        updates[`Users/${studentId}/points`] = newPoints;
+        updates[`Point_History/${studentId}/${historyId}`] = historyData;
+
+        console.log("Executing atomic redemption update:", updates);
+
+        await update(ref(db), updates);
+        console.log("Atomic update successful");
 
         setPoints(newPoints);
-        alert(`🎉 Redemption Request Sent!\nAdmins have been notified that you redeemed ${voucher.name}.`);
+        alert(`Success! Your redemption code is: ${redemptionCode}. Show this to the staff.`);
       } catch (err: any) {
-        console.error("Redemption error:", err);
-        let errorMessage = "Transaction failed.";
-        
-        if (err.code === 'PERMISSION_DENIED') {
-          errorMessage = "Permission denied. Please contact your administrator.";
-        } else if (err.code === 'NETWORK_ERROR') {
-          errorMessage = "Network error. Please check your connection and try again.";
-        } else if (err.message) {
-          errorMessage = `Transaction failed: ${err.message}`;
-        }
-        
-        alert(errorMessage);
+        console.error("Redemption error details:", err);
+        alert(`Redemption failed: ${err.message || 'Unknown error'}. Please contact support.`);
       }
-    } else {
-      alert("Insufficient points.");
     }
   };
 
@@ -461,6 +527,24 @@ const StudentDashboard: React.FC = () => {
       />
 
       <main className="portal-main">
+        {isCheatLocked && (
+          <div className="lockout-overlay">
+            <div className="lockout-card glass-card animate-scale-in">
+              <div className="lockout-icon">
+                <ShieldCheck size={48} className="text-red" />
+              </div>
+              <h1>Access Restricted</h1>
+              <p>Your account has been temporarily locked due to a security violation (unauthorized tab switching during an active assessment).</p>
+              <div className="lockout-details">
+                <p>To restore access, please contact your instructor or the department head for a security reset.</p>
+              </div>
+              <button onClick={logout} className="lockout-logout-btn">
+                Terminate Session
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Verification Prompt Banner */}
         {!currentUser?.isInnovatorVerified && !isCheatLocked && (
           <div className="verification-prompt-banner animate-slide-down">
@@ -485,7 +569,7 @@ const StudentDashboard: React.FC = () => {
                 <button onClick={() => setShowQuiz(false)} className="quiz-close-btn">×</button>
               </div>
               <InnovatorQuiz
-                userId={currentUser?.id || ''}
+                studentId={currentUser?.id || ''}
                 attempts={currentUser?.quizAttempts || 0}
                 onComplete={async (pts) => {
                   try {

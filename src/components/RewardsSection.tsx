@@ -37,7 +37,7 @@ const RewardsSection: React.FC<RewardsSectionProps> = ({
         <div className="s-icon purple"><Ticket size={24} /></div>
         <div>
           <h2>Reward Catalog</h2>
-          <p>Redeem your Excellence Points for campus canteen credits and nutritional perks</p>
+          <p>Redeem your Excellence Points for campus staff credits and nutritional perks</p>
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import StudentDashboard from './pages/StudentDashboard';
 import TeacherDashboard from './pages/TeacherDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import StaffDashboard from './pages/StaffDashboard';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{
@@ -25,7 +26,7 @@ const ProtectedRoute: React.FC<{
   if (!currentUser) return <Navigate to="/login" />;
 
   // Block non-admins from the admin subdomain even if they bypass HomeRedirect
-  if (isAdminPortal && currentUser.role !== 'Admin') {
+  if (isAdminPortal && currentUser.role !== 'Admin' && currentUser.role !== 'Super Admin') {
     logout();
     return <Navigate to="/login" />;
   }
@@ -44,21 +45,23 @@ const HomeRedirect = () => {
   if (!currentUser) return <Navigate to="/login" />;
 
   // Enforce subdomain restrictions
-  if (isAdminPortal && currentUser.role !== 'Admin') {
+  if (isAdminPortal && currentUser.role !== 'Admin' && currentUser.role !== 'Super Admin') {
     // If a non-admin is on the admin portal, kick them out
     logout();
     return <Navigate to="/login" />;
   }
 
-  if (!isAdminPortal && currentUser.role === 'Admin') {
+  if (!isAdminPortal && (currentUser.role === 'Admin' || currentUser.role === 'Super Admin')) {
     // Optional: Redirect admin to their dedicated domain if they land on the regular site
     // For now, just show them the admin dashboard or student view
     return <Navigate to="/admin" />;
   }
 
   switch (currentUser.role) {
+    case 'Super Admin':
     case 'Admin': return <Navigate to="/admin" />;
     case 'Teacher': return <Navigate to="/teacher" />;
+    case 'Staff': return <Navigate to="/staff" />;
     default: return <Navigate to="/student" />;
   }
 };
@@ -75,7 +78,7 @@ function App() {
           <Route
             path="/student"
             element={
-              <ProtectedRoute allowedRoles={['Student', 'Admin']}>
+              <ProtectedRoute allowedRoles={['Student', 'Admin', 'Super Admin']}>
                 <StudentDashboard />
               </ProtectedRoute>
             }
@@ -84,7 +87,7 @@ function App() {
           <Route
             path="/teacher"
             element={
-              <ProtectedRoute allowedRoles={['Teacher', 'Admin']}>
+              <ProtectedRoute allowedRoles={['Teacher', 'Admin', 'Super Admin']}>
                 <TeacherDashboard />
               </ProtectedRoute>
             }
@@ -93,8 +96,17 @@ function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute allowedRoles={['Admin']}>
+              <ProtectedRoute allowedRoles={['Admin', 'Super Admin']}>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/staff"
+            element={
+              <ProtectedRoute allowedRoles={['Staff', 'Super Admin']}>
+                <StaffDashboard />
               </ProtectedRoute>
             }
           />

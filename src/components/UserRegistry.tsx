@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Edit, Trash2 } from 'lucide-react';
+import { Search, Edit, Trash2, ShieldOff } from 'lucide-react';
 import type { User } from '../types';
 
 interface UserRegistryProps {
@@ -8,6 +8,7 @@ interface UserRegistryProps {
     filteredUsers: User[];
     onEdit: (user: User) => void;
     onRemove: (id: string) => void;
+    onUnlock: (id: string) => void;
     runSeed: () => void;
 }
 
@@ -17,6 +18,7 @@ const UserRegistry: React.FC<UserRegistryProps> = ({
     filteredUsers,
     onEdit,
     onRemove,
+    onUnlock,
     runSeed
 }) => {
     return (
@@ -68,7 +70,7 @@ const UserRegistry: React.FC<UserRegistryProps> = ({
                                         <tr key={user.id}>
                                             <td>
                                                 <div className="u-cell">
-                                                    <div className={`u-avatar ${user.role.toLowerCase()}`}>
+                                                    <div className={`u-avatar ${user.role.toLowerCase().replace(/\s+/g, '-')}`}>
                                                         {user.name.charAt(0)}
                                                     </div>
                                                     <strong>{user.name}</strong>
@@ -79,13 +81,23 @@ const UserRegistry: React.FC<UserRegistryProps> = ({
                                                 {user.password || 'N/A'}
                                             </td>
                                             <td>
-                                                <span className={`role-badge ${user.role.toLowerCase()}`}>
+                                                <span className={`role-badge ${user.role.toLowerCase().replace(/\s+/g, '-')}`}>
                                                     {user.role}
                                                 </span>
                                             </td>
                                             <td className="text-mono">{user.id.substring(0, 8)}</td>
                                             <td>
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    {user.isQuizLocked && (
+                                                        <button 
+                                                            onClick={() => onUnlock(user.id)} 
+                                                            className="a-delete-btn" 
+                                                            title="Unlock Account"
+                                                            style={{ background: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5' }}
+                                                        >
+                                                            <ShieldOff size={16} />
+                                                        </button>
+                                                    )}
                                                     <button 
                                                         onClick={() => onEdit(user)} 
                                                         className="a-delete-btn" 

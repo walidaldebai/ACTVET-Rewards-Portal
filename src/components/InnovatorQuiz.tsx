@@ -3,7 +3,7 @@ import { Clock, FileText, ShieldCheck, ChevronRight } from 'lucide-react';
 import { detectAI } from '../utils/aiDetection';
 
 interface InnovatorQuizProps {
-    userId: string;
+    studentId: string;
     attempts: number;
     onComplete: (pts: number) => void;
 }

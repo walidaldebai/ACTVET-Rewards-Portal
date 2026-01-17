@@ -1,4 +1,4 @@
-export type Role = 'Student' | 'Teacher' | 'Admin';
+export type Role = 'Student' | 'Teacher' | 'Admin' | 'Super Admin' | 'Staff';
 export type Grade = 9 | 10 | 11 | 12;
 
 export interface User {
@@ -14,6 +14,7 @@ export interface User {
   classId?: string; // For students, e.g., "11-A"
   quizAttempts?: number; // Total attempts at the ATS Innovator Quiz
   isInnovatorVerified?: boolean; // If student passed the mandatory quiz
+  isQuizLocked?: boolean; // If student is locked out due to tab switching
   achievements?: string[]; // Array of unlocked achievement IDs
 }
 
@@ -62,7 +63,7 @@ export interface TaskSubmission {
 
 export interface PointHistory {
   id: string;
-  userId: string;
+  studentId: string;
   points: number;
   reason: string;
   timestamp: string;
@@ -71,11 +72,16 @@ export interface PointHistory {
 
 export interface Redemption {
   id: string;
-  userId: string;
+  studentId: string;
+  studentName: string;
   voucherId: string;
+  voucherName: string;
+  aedValue: number;
   code: string;
   timestamp: string;
-  status: 'Active' | 'Used';
+  status: 'Pending' | 'Approved' | 'Used' | 'Rejected';
+  processedAt?: string;
+  processedBy?: string;
 }
 
 export interface CampusClass {
