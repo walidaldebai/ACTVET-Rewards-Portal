@@ -1,0 +1,57 @@
+{
+  "rules": {
+    "Users": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Teacher')",
+      "$uid": {
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Teacher' || !data.exists())",
+        ".validate": "!newData.exists() || newData.hasChildren(['id', 'name', 'email', 'role'])"
+      }
+    },
+    "Tasks": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Teacher')",
+      "$taskId": {
+        ".validate": "newData.hasChildren(['title', 'points', 'grade', 'assignedBy', 'subject', 'createdAt']) || !newData.exists()"
+      }
+    },
+    "Task_Submissions": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Teacher')",
+      "$submissionId": {
+        ".write": "auth != null && (auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || newData.child('studentId').val() === auth.uid || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Teacher')",
+        ".validate": "!newData.exists() || newData.hasChildren(['taskId', 'studentId', 'studentName', 'studentGrade', 'status', 'submittedAt', 'points', 'taskTitle', 'subject'])"
+      }
+    },
+    "Redemption_Requests": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || root.child('Users').child(auth.uid).child('role').val() === 'Admin')",
+      "$requestId": {
+        ".write": "auth != null && (auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || newData.child('studentId').val() === auth.uid || root.child('Users').child(auth.uid).child('role').val() === 'Admin')",
+        ".validate": "!newData.exists() || newData.hasChildren(['studentId', 'studentName', 'voucherId', 'voucherName', 'timestamp', 'status'])"
+      }
+    },
+    "Voucher_Levels": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || root.child('Users').child(auth.uid).child('role').val() === 'Admin')",
+      "$voucherId": {
+        ".validate": "!newData.exists() || (newData.hasChildren(['name', 'pointCost', 'aedValue']))"
+      }
+    },
+    "Classes": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.email.matches(/.*@actvet\\.gov\\.ae$/) || root.child('Users').child(auth.uid).child('role').val() === 'Admin')",
+      "$classId": {
+        ".validate": "!newData.exists() || newData.hasChildren(['grade', 'name'])"
+      }
+    },
+    "Notifications": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "Point_History": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

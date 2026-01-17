@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, get, child } from 'firebase/database';
-import { auth, db } from '../lib/firebase';
+import { auth, db, MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD } from '../lib/firebase';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -30,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
+                // Existing logic for authenticated user
                 if (!fbUser.email?.endsWith('@actvet.gov.ae')) {
                     await signOut(auth);
                     setCurrentUser(null);
@@ -47,6 +48,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             name: fbUser.displayName || 'User',
                             ...snapshot.val(),
                         } as User);
+                    } else if (fbUser.email === MASTER_ADMIN_EMAIL) {
+                        // Master admin might not have a DB record yet, but is valid
+                        setCurrentUser({
+                            id: fbUser.uid,
+                            email: fbUser.email,
+                            name: 'Walid (Master Admin)',
+                            role: 'Admin'
+                        } as User);
                     } else {
                         await signOut(auth);
                         setCurrentUser(null);
@@ -56,14 +65,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setCurrentUser(null);
                 }
             } else {
-                // If Firebase user is gone, only keep the session if it's a persisted Admin session
-                setCurrentUser(prev => {
-                    const isManualAdmin = localStorage.getItem('actvet_admin_session');
-                    if (isManualAdmin && prev?.role === 'Admin') {
-                        return prev;
+                // If Firebase user is gone, try auto-reauth for master admin if session exists
+                const storedAdmin = localStorage.getItem('actvet_admin_session');
+                if (storedAdmin) {
+                    try {
+                        const adminData = JSON.parse(storedAdmin);
+                        if (adminData.email === MASTER_ADMIN_EMAIL) {
+                            console.log("Auth: Detected master admin session, attempting auto-reauth...");
+                            await signInWithEmailAndPassword(auth, MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD);
+                            // The next onAuthStateChanged cycle will handle the login
+                            return;
+                        }
+                    } catch (e) {
+                        localStorage.removeItem('actvet_admin_session');
                     }
-                    return null;
-                });
+                }
+                setCurrentUser(null);
             }
             setLoading(false);
         });
@@ -84,7 +101,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return (
         <AuthContext.Provider value={{ currentUser, loading, logout, setAdminUser }}>
-            {!loading && children}
+            {loading ? (
+                <div className="loading-screen">
+                    <div className="loader"></div>
+                    <p>Initializing Session...</p>
+                </div>
+            ) : (
+                children
+            )}
         </AuthContext.Provider>
     );
 };

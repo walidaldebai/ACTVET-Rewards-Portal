@@ -1,4 +1,4 @@
-import { db, firebaseConfig } from './firebase';
+import { db, firebaseConfig, MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD } from './firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { ref, set } from 'firebase/database';
@@ -14,10 +14,10 @@ export const seedInitialData = async () => {
     // 1. Seed Voucher Levels (ALWAYS seed if empty or just overwrite to be safe)
     try {
         const vouchers: Record<string, any> = {
-            'v1': { id: 'v1', name: 'Canteen Voucher (5 AED)', creditAmount: 5, pointCost: 250, description: 'Quick snack or beverage credit' },
-            'v2': { id: 'v2', name: 'Canteen Voucher (10 AED)', creditAmount: 10, pointCost: 500, description: 'Standard meal credit' },
-            'v3': { id: 'v3', name: 'Canteen Voucher (15 AED)', creditAmount: 15, pointCost: 750, description: 'Premium meal combo credit' },
-            'v4': { id: 'v4', name: 'Canteen Voucher (20 AED)', creditAmount: 20, pointCost: 1000, description: 'Complete dining experience credit' }
+            'v1': { id: 'v1', name: 'Canteen Voucher (5 AED)', aedValue: 5, pointCost: 250, description: 'Quick snack or beverage credit' },
+            'v2': { id: 'v2', name: 'Canteen Voucher (10 AED)', aedValue: 10, pointCost: 500, description: 'Standard meal credit' },
+            'v3': { id: 'v3', name: 'Canteen Voucher (15 AED)', aedValue: 15, pointCost: 750, description: 'Premium meal combo credit' },
+            'v4': { id: 'v4', name: 'Canteen Voucher (20 AED)', aedValue: 20, pointCost: 1000, description: 'Complete dining experience credit' }
         };
         await set(ref(db, 'Voucher_Levels'), vouchers);
         results.vouchersCreated = 4;
@@ -52,23 +52,36 @@ export const seedInitialData = async () => {
     // 2. Define Comprehensive Academic Faculty
     const testUsers = [
         // Admin
-        { name: 'Walid Admin', email: 'walid@actvet.gov.ae', password: 'walidisEPIC@1234567890', role: 'Admin' },
+        { name: 'Walid Admin', email: MASTER_ADMIN_EMAIL, password: MASTER_ADMIN_PASSWORD, role: 'Admin' },
 
         // Teachers across different subjects
-        { name: 'Dr. Sarah Ahmed', email: 'sarah.a@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Mathematics' },
-        { name: 'Eng. Omar Khalid', email: 'omar.k@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Physics' },
-        { name: 'Ms. Fatima Saeed', email: 'fatima.s@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'English' },
-        { name: 'Mr. Zayed Mansour', email: 'zayed.m@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Computer Science' },
-        { name: 'Dr. Amna Al Ali', email: 'amna.ali@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Chemistry' },
+        { name: 'Dr. Sarah Ahmed', email: 'sarah.a@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Mathematics', assignedClasses: ['11-A', '11-B'] },
+        { name: 'Eng. Omar Khalid', email: 'omar.k@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Physics', assignedClasses: ['12-A', '12-B'] },
+        { name: 'Ms. Fatima Saeed', email: 'fatima.s@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'English', assignedClasses: ['9-A', '9-B'] },
+        { name: 'Mr. Zayed Mansour', email: 'zayed.m@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Computer Science', assignedClasses: ['10-A', '10-B'] },
+        { name: 'Dr. Amna Al Ali', email: 'amna.ali@actvet.gov.ae', password: 'TeacherPass123!', role: 'Teacher', subject: 'Chemistry', assignedClasses: ['11-C', '11-D'] },
 
-        // Students spread across different grades and classes
-        { name: 'Ahmad Rashid', email: 'ahmad.r@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-1', points: 1500 },
-        { name: 'Mariam Ali', email: 'mariam.a@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-1', points: 2200 },
-        { name: 'Sultan Ahmed', email: 'sultan.a@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-2', points: 900 },
-        { name: 'Noora Khalid', email: 'noora.k@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 10, classId: '10-1', points: 1100 },
-        { name: 'Hamad Saeed', email: 'hamad.s@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 10, classId: '10-1', points: 1750 },
-        { name: 'Laila Yousif', email: 'laila.y@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 12, classId: '12-1', points: 3000 },
-        { name: 'Khalifa Omar', email: 'khalifa.o@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 12, classId: '12-2', points: 500 }
+        // Students spread across all seeded classes
+        { name: 'Ahmad Rashid', email: 'ahmad.r@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-A', points: 1500 },
+        { name: 'Mariam Ali', email: 'mariam.a@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-B', points: 2200 },
+        { name: 'Sultan Ahmed', email: 'sultan.a@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 9, classId: '9-A', points: 900 },
+        { name: 'Noora Khalid', email: 'noora.k@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 9, classId: '9-B', points: 1100 },
+        { name: 'Hamad Saeed', email: 'hamad.s@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 9, classId: '9-C', points: 1750 },
+        { name: 'Laila Yousif', email: 'laila.y@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 10, classId: '10-A', points: 3000 },
+        { name: 'Khalifa Omar', email: 'khalifa.o@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 10, classId: '10-B', points: 500 },
+        { name: 'Sara Mansour', email: 'sara.m@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 10, classId: '10-C', points: 1200 },
+        { name: 'Zayed Ali', email: 'zayed.a@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-C', points: 850 },
+        { name: 'Fatima Ahmed', email: 'fatima.a@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-D', points: 2100 },
+        { name: 'Omar Hassan', email: 'omar.h@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 12, classId: '12-A', points: 1600 },
+        { name: 'Reem Khalid', email: 'reem.k@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 12, classId: '12-B', points: 2400 },
+        { name: 'Abdulla Saeed', email: 'abdulla.s@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 12, classId: '12-C', points: 1300 },
+        
+        // Additional students for more density
+        { name: 'Hessa Al Mazrouei', email: 'hessa.m@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-A', points: 1800 },
+        { name: 'Mansour Al Hallami', email: 'mansour.h@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 11, classId: '11-B', points: 950 },
+        { name: 'Salama Al Ketbi', email: 'salama.k@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 9, classId: '9-A', points: 1300 },
+        { name: 'Rashid Al Nuaimi', email: 'rashid.n@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 10, classId: '10-A', points: 2500 },
+        { name: 'Meera Al Shehhi', email: 'meera.s@actvet.gov.ae', password: 'StudentPass123!', role: 'Student', grade: 12, classId: '12-A', points: 3100 }
     ];
 
     // 3. Create Users
@@ -95,7 +108,8 @@ export const seedInitialData = async () => {
                 userData.classId = u.classId;
                 userData.points = u.points;
             } else if (u.role === 'Teacher') {
-                userData.subject = u.subject;
+                userData.subject = (u as any).subject;
+                userData.assignedClasses = (u as any).assignedClasses || [];
             }
 
             await set(ref(db, `Users/${uid}`), userData);

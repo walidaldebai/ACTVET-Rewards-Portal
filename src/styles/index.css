@@ -48,6 +48,7 @@
 
   /* Gradients */
   --premium-gradient: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+  --accent-gradient: linear-gradient(135deg, var(--ats-blue) 0%, var(--ats-navy) 100%);
   --ats-gradient: linear-gradient(135deg, var(--ats-blue) 0%, var(--ats-navy) 100%);
   --gold-gradient: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
   --green-gradient: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);

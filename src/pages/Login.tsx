@@ -1,10 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
-import { ref, get, child } from 'firebase/database';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth, db, MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD } from '../lib/firebase';
+import { ref, get, child, set } from 'firebase/database';
 import { Lock, ShieldAlert, ChevronRight, User, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import '../styles/Login.css';
+
+interface BrandPanelProps {}
+
+const BrandPanel: React.FC<BrandPanelProps> = () => (
+  <div className="brand-panel">
+    <div className="brand-mesh"></div>
+    <div className="brand-content animate-slide-up">
+      <div className="logo-wrapper">
+        <img src="/ats_logo.png" alt="ATS Logo" className="ats-logo-lg" />
+      </div>
+      <div className="brand-text">
+        <h1>ATS Innovator<br /><span className="text-highlight">Portal</span></h1>
+        <p>The institutional platform for excellence, recognition, and governance.</p>
+      </div>
+
+      <div className="brand-badges">
+        <div className="badge-item">
+          <ShieldAlert size={20} />
+          <span>Secure Access</span>
+        </div>
+        <div className="badge-item">
+          <User size={20} />
+          <span>Identity Verified</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -38,15 +67,65 @@ const Login: React.FC = () => {
       // Explicitly sign out any existing student/teacher session to prevent identity overlap
       await auth.signOut();
 
-      // Master credentials from user request
-      if (username === 'walid@actvet.gov.ae' && password === 'walidisEPIC@1234567890') {
-        setAdminUser({
-          id: 'admin-walid',
-          name: 'Walid (Master Admin)',
-          email: 'walid@actvet.gov.ae',
-          role: 'Admin'
-        });
-        navigate('/');
+      // Master credentials from env/lib
+      if (username === MASTER_ADMIN_EMAIL && password === MASTER_ADMIN_PASSWORD) {
+        try {
+          // Attempt to sign in to Firebase for database access
+          const userCredential = await signInWithEmailAndPassword(auth, username, password);
+          
+          // Ensure the user exists in the DB with Admin role
+          const dbRef = ref(db);
+          const snapshot = await get(child(dbRef, `Users/${userCredential.user.uid}`));
+          if (!snapshot.exists()) {
+            await set(ref(db, `Users/${userCredential.user.uid}`), {
+              id: userCredential.user.uid,
+              name: 'Walid (Master Admin)',
+              email: MASTER_ADMIN_EMAIL,
+              role: 'Admin',
+              status: 'Active',
+              createdAt: new Date().toISOString()
+            });
+          }
+          
+          setAdminUser({
+            id: userCredential.user.uid,
+            name: 'Walid (Master Admin)',
+            email: MASTER_ADMIN_EMAIL,
+            role: 'Admin'
+          });
+          navigate('/');
+        } catch (e: any) {
+          if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+            try {
+              // Create the master admin account if it doesn't exist in Firebase Auth
+              const userCredential = await createUserWithEmailAndPassword(auth, username, password);
+              await set(ref(db, `Users/${userCredential.user.uid}`), {
+                id: userCredential.user.uid,
+                name: 'Walid (Master Admin)',
+                email: 'walid@actvet.gov.ae',
+                role: 'Admin',
+                status: 'Active',
+                createdAt: new Date().toISOString()
+              });
+              
+              setAdminUser({
+                id: userCredential.user.uid,
+                name: 'Walid (Master Admin)',
+                email: 'walid@actvet.gov.ae',
+                role: 'Admin'
+              });
+              navigate('/');
+            } catch (createErr: any) {
+              console.error("Master Admin: Failed to create account:", createErr);
+              setError("Critical failure: Could not provision master account. " + createErr.message);
+            }
+          } else {
+            console.error("Master Admin: Firebase Auth failed:", e.message);
+            setError("Authentication failed: " + e.message);
+          }
+        } finally {
+          setLoading(false);
+        }
       } else {
         setError('Authentication failed. Institutional bypass declined.');
         setLoading(false);
@@ -57,15 +136,65 @@ const Login: React.FC = () => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    if (cleanEmail === 'walid@actvet.gov.ae' && cleanPassword === 'walidisEPIC@1234567890') {
+    if (cleanEmail === MASTER_ADMIN_EMAIL && cleanPassword === MASTER_ADMIN_PASSWORD) {
       setLoading(true);
-      setAdminUser({
-        id: 'admin-walid',
-        name: 'Walid (Master Admin)',
-        email: 'walid@actvet.gov.ae',
-        role: 'Admin'
-      });
-      navigate('/');
+      try {
+        // Attempt to sign in to Firebase for database access
+        const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+        
+        // Ensure the user exists in the DB with Admin role
+        const dbRef = ref(db);
+        const snapshot = await get(child(dbRef, `Users/${userCredential.user.uid}`));
+        if (!snapshot.exists()) {
+          await set(ref(db, `Users/${userCredential.user.uid}`), {
+            id: userCredential.user.uid,
+            name: 'Walid (Master Admin)',
+              email: MASTER_ADMIN_EMAIL,
+              role: 'Admin',
+              status: 'Active',
+              createdAt: new Date().toISOString()
+            });
+          }
+          
+          setAdminUser({
+            id: userCredential.user.uid,
+            name: 'Walid (Master Admin)',
+            email: MASTER_ADMIN_EMAIL,
+            role: 'Admin'
+          });
+        navigate('/');
+      } catch (e: any) {
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+          try {
+            // Create the master admin account if it doesn't exist in Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+            await set(ref(db, `Users/${userCredential.user.uid}`), {
+              id: userCredential.user.uid,
+              name: 'Walid (Master Admin)',
+              email: MASTER_ADMIN_EMAIL,
+              role: 'Admin',
+              status: 'Active',
+              createdAt: new Date().toISOString()
+            });
+
+            setAdminUser({
+              id: userCredential.user.uid,
+              name: 'Walid (Master Admin)',
+              email: MASTER_ADMIN_EMAIL,
+              role: 'Admin'
+            });
+            navigate('/');
+          } catch (createErr: any) {
+            console.error("Master Admin: Failed to create account:", createErr);
+            setError("Critical failure: " + createErr.message);
+          }
+        } else {
+          console.error("Master Admin: Firebase Auth failed:", e.message);
+          setError("Authentication failed: " + e.message);
+        }
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -98,30 +227,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="login-container">
-      {/* Left Brand Panel */}
-      <div className="brand-panel">
-        <div className="brand-mesh"></div>
-        <div className="brand-content animate-slide-up">
-          <div className="logo-wrapper">
-            <img src="/ats_logo.png" alt="ATS Logo" className="ats-logo-lg" />
-          </div>
-          <div className="brand-text">
-            <h1>ATS Innovator<br /><span className="text-highlight">Portal</span></h1>
-            <p>The institutional platform for excellence, recognition, and governance.</p>
-          </div>
-
-          <div className="brand-badges">
-            <div className="badge-item">
-              <ShieldAlert size={20} />
-              <span>Secure Access</span>
-            </div>
-            <div className="badge-item">
-              <User size={20} />
-              <span>Identity Verified</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <BrandPanel />
 
       {/* Right Login Form */}
       <div className="form-panel">
@@ -199,81 +305,6 @@ const Login: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <style>{`
-        .login-container { display: flex; height: 100vh; width: 100vw; background: white; overflow: hidden; }
-        
-        /* Left Brand Panel */
-        .brand-panel { 
-          width: 45%; 
-          background: #020617; 
-          position: relative; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          color: white; 
-          overflow: hidden;
-        }
-        .brand-mesh {
-          position: absolute;
-          inset: 0;
-          background: 
-            radial-gradient(circle at 10% 10%, rgba(14, 165, 233, 0.15) 0%, transparent 40%),
-            radial-gradient(circle at 90% 90%, rgba(34, 197, 94, 0.1) 0%, transparent 40%);
-          opacity: 0.8;
-        }
-        .brand-content { position: relative; z-index: 10; padding: 4rem; max-width: 600px; }
-        .logo-wrapper { margin-bottom: 2.5rem; }
-        .ats-logo-lg { width: 140px; height: auto; display: block; filter: drop-shadow(0 0 20px rgba(14, 165, 233, 0.3)); }
-        
-        .brand-text h1 { font-size: 3.5rem; font-weight: 800; line-height: 1.1; margin-bottom: 1.5rem; letter-spacing: -0.03em; }
-        .text-highlight { color: var(--ats-blue); background: -webkit-linear-gradient(135deg, #0ea5e9, #22c55e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .brand-text p { font-size: 1.1rem; opacity: 0.7; line-height: 1.6; max-width: 90%; margin-bottom: 3rem; }
-        
-        .brand-badges { display: flex; gap: 1.5rem; }
-        .badge-item { display: flex; align-items: center; gap: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.75rem 1.25rem; border-radius: 100px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; backdrop-filter: blur(10px); }
-        
-        /* Right Form Panel */
-        .form-panel { flex: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 2rem; }
-        .form-content { width: 100%; max-width: 420px; }
-        
-        .form-header { margin-bottom: 3rem; }
-        .form-header h2 { font-size: 2rem; font-weight: 900; color: #0f172a; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
-        .form-header p { color: #64748b; font-size: 0.95rem; }
-
-        .error-banner { background: #fef2f2; border: 1px solid #fee2e2; color: #ef4444; padding: 1rem; border-radius: 12px; display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; font-weight: 600; margin-bottom: 2rem; }
-        
-        .login-form { display: flex; flex-direction: column; gap: 1.5rem; }
-        .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        .input-group label { font-size: 0.8rem; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 0.25rem; }
-        
-        .input-field { position: relative; display: flex; align-items: center; }
-        .input-icon { position: absolute; left: 1.25rem; color: #94a3b8; pointer-events: none; transition: 0.2s; }
-        .input-field input { width: 100%; padding: 1rem 1rem 1rem 3.5rem; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 16px; font-size: 1rem; font-weight: 500; color: #0f172a; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-        .input-field input:focus { background: white; border-color: var(--ats-blue); box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1); outline: none; }
-        .input-field input:focus ~ .input-icon { color: var(--ats-blue); }
-        
-        .submit-btn { margin-top: 1rem; padding: 1.25rem; background: #0f172a; color: white; border-radius: 18px; font-weight: 700; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; transition: all 0.3s; box-shadow: 0 10px 20px -5px rgba(2, 6, 23, 0.2); }
-        .submit-btn:hover { background: var(--ats-blue); transform: translateY(-2px); box-shadow: 0 15px 30px -5px rgba(14, 165, 233, 0.3); }
-        .submit-btn:active { transform: translateY(0); }
-        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-        
-        .form-footer { margin-top: 4rem; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 2rem; }
-        .form-footer p { font-size: 0.75rem; color: #94a3b8; font-weight: 500; }
-        .form-footer .version { font-family: monospace; opacity: 0.5; margin-top: 0.5rem; }
-
-        .loader { width: 20px; height: 20px; border: 2px solid white; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        @media (max-width: 1000px) {
-          .login-container { flex-direction: column; overflow-y: auto; height: auto; min-height: 100vh; }
-          .brand-panel { width: 100%; padding: 4rem 2rem; min-height: 40vh; }
-          .brand-content { text-align: center; align-items: center; display: flex; flex-direction: column; }
-          .ats-logo-lg { width: 100px; margin-bottom: 2rem; }
-          .brand-text h1 { font-size: 2.5rem; }
-          .form-panel { padding: 3rem 1.5rem; }
-        }
-      `}</style>
     </div>
   );
 };

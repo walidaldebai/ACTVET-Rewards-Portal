@@ -14,12 +14,13 @@ export interface User {
   classId?: string; // For students, e.g., "11-A"
   quizAttempts?: number; // Total attempts at the ATS Innovator Quiz
   isInnovatorVerified?: boolean; // If student passed the mandatory quiz
+  achievements?: string[]; // Array of unlocked achievement IDs
 }
 
 export interface VoucherLevel {
   id: string;
   name: string;
-  creditAmount: number;
+  aedValue: number;
   pointCost: number;
   description: string;
 }
@@ -81,4 +82,14 @@ export interface CampusClass {
   id: string; // Dynamic ID, e.g. "9-A"
   grade: Grade;
   name: string; // e.g. "A"
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  bColor?: string; // Background color for icon
+  isUnlocked: boolean;
+  progress: number; // 0-100
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import './styles/App.css';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
@@ -101,38 +102,6 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
-
-      <style>{`
-        .loading-screen {
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          background: radial-gradient(circle at top left, #1e293b 0%, #0f172a 100%);
-          color: white;
-          gap: 1.5rem;
-          font-family: 'Inter', sans-serif;
-        }
-        .loader {
-          width: 50px;
-          height: 50px;
-          border: 4px solid rgba(255,255,255,0.1);
-          border-left-color: #fbbf24;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-        .loading-screen p {
-          font-weight: 700;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          font-size: 0.85rem;
-          color: #94a3b8;
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </AuthProvider>
   );
 }

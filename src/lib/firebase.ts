@@ -23,5 +23,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 export const storage = getStorage(app);
+export const MASTER_ADMIN_EMAIL = getEnv('VITE_MASTER_ADMIN_EMAIL', 'walid@actvet.gov.ae');
+export const MASTER_ADMIN_PASSWORD = getEnv('VITE_MASTER_ADMIN_PASSWORD', 'walidisEPIC@1234567890');
 export { firebaseConfig };
 export default app;
