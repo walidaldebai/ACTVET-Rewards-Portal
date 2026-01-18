@@ -27,6 +27,7 @@ const TeacherDashboard: React.FC = () => {
     const [newTaskClassId, setNewTaskClassId] = useState<string>('');
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('All');
     const [newTaskMaxScore, setNewTaskMaxScore] = useState<number>(10);
+    const [newTaskTimeLimit, setNewTaskTimeLimit] = useState<number>(60);
     const [gradingScore, setGradingScore] = useState<Record<string, number>>({});
     const [adjustingPoints, setAdjustingPoints] = useState<string | null>(null);
     const [customPointAmount, setCustomPointAmount] = useState<number>(100);
@@ -152,6 +153,7 @@ const TeacherDashboard: React.FC = () => {
                 points: newTaskPoints,
                 grade: newTaskGrade,
                 maxScore: newTaskMaxScore,
+                timeLimit: newTaskTimeLimit,
                 assignedBy: currentUser.id,
                 subject: currentUser.subject,
                 createdAt: new Date().toISOString()
@@ -168,6 +170,7 @@ const TeacherDashboard: React.FC = () => {
             setNewTaskTitle('');
             setNewTaskFile(null);
             setNewTaskDeadline('');
+            setNewTaskTimeLimit(60);
             alert('🚀 Institutional Assignment Broadcasted Successfully.');
         } catch (error: any) {
             console.error("Broadcast Error:", error);
@@ -228,20 +231,32 @@ const TeacherDashboard: React.FC = () => {
         try {
             const student = students.find(s => s.id === studentId);
             if (!student) return;
+            
             const newPoints = (student.points || 0) + amount;
-            await update(ref(db, `Users/${studentId}`), { points: newPoints });
-
             const historyRef = push(ref(db, `Point_History/${studentId}`));
-            await set(historyRef, {
+            const historyKey = historyRef.key;
+
+            const updates: any = {};
+            updates[`Users/${studentId}/points`] = newPoints;
+            updates[`Point_History/${studentId}/${historyKey}`] = {
                 studentId: studentId,
                 points: amount,
                 reason: `Instructor Adjustment: ${currentUser?.subject || 'General'}`,
                 timestamp: new Date().toISOString(),
                 type: amount > 0 ? 'Awarded' : 'Redeemed'
-            });
+            };
+
+            console.log(`Executing point adjustment for student ${studentId}: ${amount} points. Current User Role: ${currentUser?.role}`);
+            await update(ref(db), updates);
+            
             setAdjustingPoints(null);
-        } catch (err) {
-            alert('Adjustment failed.');
+            alert(`Successfully ${amount > 0 ? 'awarded' : 'deducted'} ${Math.abs(amount)} points.`);
+        } catch (err: any) {
+            console.error('Adjustment Error:', err);
+            const errorMsg = err.code === 'PERMISSION_DENIED' 
+                ? `Permission Denied: You do not have authorization to adjust points. (Current Role: ${currentUser?.role || 'Unknown'})`
+                : `Adjustment failed: ${err.message}`;
+            alert(errorMsg);
         }
     };
 
@@ -279,6 +294,8 @@ const TeacherDashboard: React.FC = () => {
                         setNewTaskPoints={setNewTaskPoints}
                         newTaskDeadline={newTaskDeadline}
                         setNewTaskDeadline={setNewTaskDeadline}
+                        newTaskTimeLimit={newTaskTimeLimit}
+                        setNewTaskTimeLimit={setNewTaskTimeLimit}
                         newTaskFile={newTaskFile}
                         setNewTaskFile={setNewTaskFile}
                         uploading={uploading}

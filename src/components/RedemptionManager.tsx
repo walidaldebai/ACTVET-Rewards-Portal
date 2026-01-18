@@ -19,7 +19,8 @@ const RedemptionManager: React.FC<RedemptionManagerProps> = ({ redemptions, onPr
                     <table className="a-table">
                         <thead>
                             <tr>
-                                <th>Time</th>
+                                <th>Requested</th>
+                                <th>Processed</th>
                                 <th>Student</th>
                                 <th>Voucher</th>
                                 <th>Value</th>
@@ -33,6 +34,9 @@ const RedemptionManager: React.FC<RedemptionManagerProps> = ({ redemptions, onPr
                                 <tr key={r.id}>
                                     <td className="text-mono" style={{ fontSize: '0.8rem' }}>
                                         {new Date(r.timestamp).toLocaleString()}
+                                    </td>
+                                    <td className="text-mono" style={{ fontSize: '0.8rem' }}>
+                                        {r.processedAt ? new Date(r.processedAt).toLocaleString() : '-'}
                                     </td>
                                     <td>
                                         <strong>{r.studentName}</strong>

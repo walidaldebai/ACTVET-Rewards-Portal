@@ -99,10 +99,10 @@
 .f-group label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-left: 0.5rem; }
 .a-submit-btn { padding: 1.1rem; border-radius: 16px; color: white; font-weight: 900; margin-top: 0.5rem; }
 
-/* Voucher Coupon UI */
+/* Voucher Coupon UI - Standardized Ticket Design */
 .voucher-coupon-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1.5rem;
     margin-top: 1rem;
 }
@@ -111,47 +111,53 @@
     position: relative;
     display: flex;
     background: white;
-    border-radius: 12px;
+    border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0,0,0,0.05);
     border: 1px solid #e2e8f0;
-    height: 100px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    height: 110px;
+    transition: all 0.3s ease;
 }
 
 .coupon-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.1);
+    border-color: #cbd5e1;
 }
 
 .coupon-left {
     background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-    width: 80px;
+    width: 90px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     color: white;
     padding: 0.5rem;
+    position: relative;
+    z-index: 1;
 }
 
 .coupon-value {
-    font-size: 1.8rem;
+    font-size: 2rem;
     font-weight: 900;
     line-height: 1;
 }
 
 .coupon-currency {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 800;
     opacity: 0.9;
-    margin-top: 0.2rem;
+    margin-top: 0.25rem;
+    letter-spacing: 0.05em;
 }
 
 .coupon-divider {
     width: 0;
     border-left: 2px dashed #e2e8f0;
-    margin: 10px 0;
+    margin: 12px 0;
+    position: relative;
+    z-index: 1;
 }
 
 .coupon-right {
@@ -161,6 +167,8 @@
     justify-content: space-between;
     align-items: center;
     background: white;
+    position: relative;
+    z-index: 1;
 }
 
 .coupon-info {
@@ -174,6 +182,7 @@
     font-weight: 800;
     color: #1e293b;
     margin: 0;
+    line-height: 1.2;
 }
 
 .coupon-cost {
@@ -194,17 +203,19 @@
 .coupon-delete:hover {
     color: #ef4444;
     background: #fef2f2;
+    transform: scale(1.1);
 }
 
 .coupon-punch-top, .coupon-punch-bottom {
     position: absolute;
-    left: 70px;
+    left: 80px;
     width: 20px;
     height: 20px;
     background: #f8fafc; /* Matches dashboard background */
     border-radius: 50%;
     z-index: 2;
-    border: 1px solid #e2e8f0;
+    border: none;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
 }
 
 .coupon-punch-top {

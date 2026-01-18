@@ -41,9 +41,21 @@ const StaffDashboard: React.FC = () => {
         return () => unsubscribe();
     }, [foundRedemption]);
 
+    const isExpired = (timestamp: string) => {
+        const now = new Date();
+        const redeemedDate = new Date(timestamp);
+        const diffInDays = (now.getTime() - redeemedDate.getTime()) / (1000 * 3600 * 24);
+        return diffInDays > 7;
+    };
+
     const handleMarkAsUsed = async (redemption: Redemption) => {
         if (redemption.status !== 'Pending') {
             alert('This voucher has already been processed.');
+            return;
+        }
+
+        if (isExpired(redemption.timestamp)) {
+            alert('This voucher has expired (older than 1 week). It cannot be redeemed.');
             return;
         }
 
@@ -224,7 +236,7 @@ const StaffDashboard: React.FC = () => {
                                                 </div>
                                                 <div>
                                                     <strong style={{ display: 'block', fontSize: '1.25rem' }}>{foundRedemption.studentName}</strong>
-                                                    <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>{foundRedemption.voucherName}</span>
+                                                    <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>Redemption Request</span>
                                                 </div>
                                             </div>
                                             <button onClick={() => setFoundRedemption(null)} style={{ background: '#f1f5f9', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px', borderRadius: '50%' }}>
@@ -232,28 +244,61 @@ const StaffDashboard: React.FC = () => {
                                             </button>
                                         </div>
                                         
-                                        <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                                                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#64748b' }}>Institutional Value:</span>
-                                                <strong style={{ color: '#059669', fontSize: '1.1rem' }}>{foundRedemption.aedValue} AED</strong>
+                                        {/* Standardized Coupon UI for the result */}
+                                        <div className="coupon-card" style={{ marginBottom: '1.5rem' }}>
+                                            <div className="coupon-left">
+                                                <div className="coupon-value">{foundRedemption.aedValue}</div>
+                                                <div className="coupon-currency">AED</div>
                                             </div>
+                                            <div className="coupon-divider"></div>
+                                            <div className="coupon-right">
+                                                <div className="coupon-info">
+                                                    <h3 className="coupon-title">{foundRedemption.voucherName}</h3>
+                                                    <p className="coupon-cost">Code: {foundRedemption.code}</p>
+                                                </div>
+                                                <div className="coupon-status">
+                                                    <span className={`role-badge ${foundRedemption.status.toLowerCase()}`} style={{ padding: '0.4rem 0.8rem' }}>{foundRedemption.status}</span>
+                                                </div>
+                                            </div>
+                                            <div className="coupon-punch-top"></div>
+                                            <div className="coupon-punch-bottom"></div>
+                                        </div>
+
+                                        <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                                                 <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#64748b' }}>Request Date:</span>
                                                 <span style={{ fontWeight: 700 }}>{new Date(foundRedemption.timestamp).toLocaleDateString()}</span>
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#64748b' }}>Current Status:</span>
-                                                <span className={`role-badge ${foundRedemption.status.toLowerCase()}`} style={{ padding: '0.4rem 0.8rem' }}>{foundRedemption.status}</span>
-                                            </div>
+                                            {foundRedemption.status === 'Pending' && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#64748b' }}>Status:</span>
+                                                    <span style={{ 
+                                                        fontWeight: 700, 
+                                                        color: isExpired(foundRedemption.timestamp) ? '#ef4444' : '#10b981' 
+                                                    }}>
+                                                        {isExpired(foundRedemption.timestamp) ? 'EXPIRED' : 'VALID'}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {foundRedemption.status === 'Pending' ? (
                                             <button 
                                                 onClick={() => handleMarkAsUsed(foundRedemption)}
-                                                className="a-submit-btn accent-gradient"
-                                                style={{ width: '100%', margin: 0, padding: '1.25rem', fontWeight: 900, fontSize: '1.1rem', borderRadius: '12px' }}
+                                                className={`a-submit-btn ${isExpired(foundRedemption.timestamp) ? 'bg-gray-400' : 'accent-gradient'}`}
+                                                style={{ 
+                                                    width: '100%', 
+                                                    margin: 0, 
+                                                    padding: '1.25rem', 
+                                                    fontWeight: 900, 
+                                                    fontSize: '1.1rem', 
+                                                    borderRadius: '12px',
+                                                    cursor: isExpired(foundRedemption.timestamp) ? 'not-allowed' : 'pointer',
+                                                    opacity: isExpired(foundRedemption.timestamp) ? 0.6 : 1
+                                                }}
+                                                disabled={isExpired(foundRedemption.timestamp)}
                                             >
-                                                CONFIRM & COMPLETE REDEMPTION
+                                                {isExpired(foundRedemption.timestamp) ? 'EXPIRED VOUCHER' : 'CONFIRM & COMPLETE REDEMPTION'}
                                             </button>
                                         ) : (
                                             <div style={{ background: '#ecfdf5', borderRadius: '12px', padding: '1.25rem', color: '#059669', fontWeight: 800, textAlign: 'center', border: '1px solid #10b981' }}>
@@ -300,6 +345,7 @@ const StaffDashboard: React.FC = () => {
                                             <th>Voucher</th>
                                             <th>Value</th>
                                             <th>Code</th>
+                                            <th>Requested Date</th>
                                             <th>Processed Date</th>
                                             <th style={{ textAlign: 'right' }}>Staff Member</th>
                                         </tr>
@@ -307,7 +353,7 @@ const StaffDashboard: React.FC = () => {
                                     <tbody>
                                         {loading ? (
                                             <tr>
-                                                <td colSpan={6} style={{ textAlign: 'center', padding: '4rem' }}>
+                                                <td colSpan={7} style={{ textAlign: 'center', padding: '4rem' }}>
                                                     <div className="loader-container">
                                                         <div className="spinner-large" style={{ margin: '0 auto' }}></div>
                                                         <p style={{ marginTop: '1.5rem', fontWeight: 800, color: '#64748b' }}>Loading History...</p>
@@ -341,7 +387,12 @@ const StaffDashboard: React.FC = () => {
                                                         <code style={{ background: '#f8fafc', padding: '0.4rem 0.6rem', borderRadius: '6px', fontWeight: 800, letterSpacing: '1px' }}>{r.code}</code>
                                                     </td>
                                                     <td>
-                                                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{new Date(r.processedAt!).toLocaleString()}</span>
+                                                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{new Date(r.timestamp).toLocaleDateString()}</div>
+                                                        <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>{new Date(r.timestamp).toLocaleTimeString()}</div>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{new Date(r.processedAt!).toLocaleDateString()}</div>
+                                                        <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>{new Date(r.processedAt!).toLocaleTimeString()}</div>
                                                     </td>
                                                     <td style={{ textAlign: 'right' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -353,7 +404,7 @@ const StaffDashboard: React.FC = () => {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={6} style={{ textAlign: 'center', padding: '4rem' }}>
+                                                <td colSpan={7} style={{ textAlign: 'center', padding: '4rem' }}>
                                                     <div className="no-data">
                                                         <Clock size={48} style={{ color: '#cbd5e1', marginBottom: '1rem' }} />
                                                         <p style={{ fontWeight: 800, color: '#64748b' }}>No redemption history found.</p>

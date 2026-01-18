@@ -1,6 +1,7 @@
-import React from 'react';
-import { ClipboardList, RefreshCw, Clock, FileText, Download, Upload, CheckCircle2, XCircle, Lock as LockIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { ClipboardList, RefreshCw, Clock, FileText, Download, Upload, CheckCircle2, XCircle, Lock as LockIcon, Play, Calendar, Zap } from 'lucide-react';
 import type { Task, TaskSubmission, User } from '../types';
+import TaskStartModal from './TaskStartModal';
 
 interface TasksSectionProps {
   tasks: Task[];
@@ -11,6 +12,9 @@ interface TasksSectionProps {
   setHandInFile: (file: File | null) => void;
   handleSubmitTask: (task: Task) => void;
   isCheatLocked: boolean;
+  activeTaskId: string | null;
+  onStartTask: (task: Task) => void;
+  timeLeft: number | null;
 }
 
 const TasksSection: React.FC<TasksSectionProps> = ({
@@ -21,12 +25,41 @@ const TasksSection: React.FC<TasksSectionProps> = ({
   handInFile,
   setHandInFile,
   handleSubmitTask,
-  isCheatLocked
+  isCheatLocked,
+  activeTaskId,
+  onStartTask,
+  timeLeft
 }) => {
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const filteredTasks = tasks.filter(t =>
     t.grade === currentUser?.grade &&
     (!t.assignedToClass || t.assignedToClass === currentUser?.classId)
   );
+
+  const handleStartClick = (task: Task) => {
+    const skipWarning = localStorage.getItem('skipTaskWarning') === 'true';
+    if (skipWarning) {
+      onStartTask(task);
+    } else {
+      setSelectedTask(task);
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleConfirmStart = (dontShowAgain: boolean) => {
+    if (dontShowAgain) {
+      localStorage.setItem('skipTaskWarning', 'true');
+    }
+    if (selectedTask) {
+      onStartTask(selectedTask);
+    }
+    setIsModalOpen(false);
+    setSelectedTask(null);
+  };
+
+  const isOtherTaskActive = activeTaskId !== null && activeTaskId !== undefined;
 
   return (
     <section className="portal-section">
@@ -41,76 +74,107 @@ const TasksSection: React.FC<TasksSectionProps> = ({
       <div className="tasks-list-v2">
         {filteredTasks.map(task => {
           const submission = submissions.find(s => s.taskId === task.id);
+          const isActive = activeTaskId === task.id;
+          const isLocked = isOtherTaskActive && !isActive && !submission;
+          
           return (
-            <div key={task.id} className={`t-row-v2 glass-card animate-slide-up ${submission ? 'submitted' : ''}`}>
-              <div className="t-status-v2">
-                <div className={`t-pulse ${submission?.status === 'Approved' ? 'green' : submission ? 'orange' : 'blue'}`}></div>
-              </div>
-              <div className="t-content-v2">
-                <div className="task-v2-main">
-                  <div className="task-v2-header">
-                    <span className="task-v2-subject">{task.subject}</span>
-                    <div className="task-v2-tags">
-                      {task.deadline && (
-                        <div className={`task-deadline-pill ${new Date(task.deadline) < new Date() ? 'expired' : ''}`}>
-                          <Clock size={12} />
-                          <span>Due {new Date(task.deadline).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                      <span className="task-v2-points">+{task.points} PTS</span>
-                    </div>
-                  </div>
-                  <h3>{task.title}</h3>
-                  <p className="task-v2-desc">{task.description}</p>
-
-                  {task.attachmentUrl && (
-                    <a href={task.attachmentUrl} target="_blank" rel="noreferrer" className="task-attachment-link glass-card">
-                      <div className="att-pre"><FileText size={18} /></div>
-                      <div className="att-details">
-                        <span className="att-label">Reference Material</span>
-                        <span className="att-name">{task.attachmentName || 'assignment-guide.pdf'}</span>
+            <div key={task.id} className={`t-row-v2 glass-card animate-slide-up ${submission ? 'submitted' : ''} ${isActive ? 'active-task-row' : ''} ${isLocked ? 'locked-task' : ''}`}>
+              <div className="task-v2-header">
+                <div className="task-v2-meta">
+                  <span className="task-v2-subject">{task.subject}</span>
+                  <div className="task-v2-tags">
+                    {task.timeLimit && (
+                      <div className={`task-time-pill ${isActive ? 'timer-active' : ''}`}>
+                        <Clock size={14} />
+                        <span>{isActive && timeLeft !== null ? 
+                          `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}` : 
+                          `${task.timeLimit} MINS`}</span>
                       </div>
-                      <Download size={16} />
-                    </a>
-                  )}
+                    )}
+                    {task.deadline && (
+                      <div className={`task-deadline-pill ${new Date(task.deadline) < new Date() ? 'expired' : ''}`}>
+                        <Calendar size={14} />
+                        <span>{new Date(task.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                <div className="task-v2-actions">
+                <div className="task-v2-status">
                   {submission ? (
-                    <div className={`status-v2 ${submission.status.toLowerCase()}`}>
-                      {submission.status === 'Approved' ? <CheckCircle2 size={18} /> :
-                        submission.status === 'Rejected' ? <XCircle size={18} /> : <RefreshCw size={18} className="spin-slow" />}
-                      <span>{submission.status}</span>
+                    <div className={`t-status-badge ${submission.status === 'Approved' ? 'approved' : 'pending'}`}>
+                      {submission.status === 'Approved' ? <CheckCircle2 size={16} /> : <Clock size={16} />}
+                      <span>{submission.status.toUpperCase()}</span>
+                    </div>
+                  ) : isActive ? (
+                    <div className="t-status-badge active">
+                      <div className="pulse-dot"></div>
+                      <span>IN PROGRESS</span>
+                    </div>
+                  ) : isLocked ? (
+                    <div className="t-status-badge locked">
+                      <LockIcon size={16} />
+                      <span>LOCKED</span>
                     </div>
                   ) : (
-                    <div className="hand-in-zone">
-                      {isCheatLocked ? (
-                        <div className="cheat-lock-msg">
-                          <LockIcon size={16} />
-                          <span>Task Locked - Security Violation</span>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="file-input-wrapper glass-card">
-                            <Upload size={16} />
-                            <span>{handInFile ? handInFile.name : 'Choose edit/solved file'}</span>
-                            <input
-                              type="file"
-                              onChange={e => setHandInFile(e.target.files?.[0] || null)}
-                              disabled={submittingId === task.id}
-                            />
-                          </div>
-                          <button
-                            className="handin-btn-v2 gold-gradient"
-                            onClick={() => handleSubmitTask(task)}
-                            disabled={submittingId === task.id}
-                          >
-                            {submittingId === task.id ? 'Processing...' : 'Hand in Assignment'}
-                          </button>
-                        </>
-                      )}
+                    <div className="t-status-badge available">
+                      <span>AVAILABLE</span>
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div className="task-v2-body">
+                <h3>{task.title}</h3>
+                <p className="task-v2-desc">{task.description}</p>
+                
+                <div className="task-v2-footer">
+                  <div className="task-points-pill">
+                    <Zap size={16} />
+                    <span>{task.points} PTS</span>
+                  </div>
+
+                  <div className="task-actions">
+                    {submission ? (
+                      <div className="submission-info">
+                        <span className="sub-date">Submitted {new Date(submission.timestamp).toLocaleDateString()}</span>
+                        {submission.fileUrl && (
+                          <a href={submission.fileUrl} target="_blank" rel="noopener noreferrer" className="sub-file-link">
+                            <FileText size={16} />
+                            VIEW ATTACHMENT
+                          </a>
+                        )}
+                      </div>
+                    ) : isActive ? (
+                      <div className="task-active-controls">
+                        <label className="hand-in-btn">
+                          <Upload size={18} />
+                          <span>{handInFile ? handInFile.name : 'UPLOAD SOLUTION'}</span>
+                          <input 
+                            type="file" 
+                            onChange={(e) => setHandInFile(e.target.files?.[0] || null)} 
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                        <button 
+                          className="submit-task-btn"
+                          disabled={!handInFile || submittingId === task.id}
+                          onClick={() => handleSubmitTask(task)}
+                        >
+                          {submittingId === task.id ? <RefreshCw className="spin" size={18} /> : <CheckCircle2 size={18} />}
+                          SUBMIT NOW
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        className="start-task-btn"
+                        disabled={isLocked || isCheatLocked}
+                        onClick={() => handleStartClick(task)}
+                      >
+                        <Play size={18} />
+                        START TASK
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -126,6 +190,16 @@ const TasksSection: React.FC<TasksSectionProps> = ({
           </div>
         )}
       </div>
+
+      <TaskStartModal 
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedTask(null);
+        }}
+        onConfirm={handleConfirmStart}
+        taskTitle={selectedTask?.title || ''}
+      />
     </section>
   );
 };

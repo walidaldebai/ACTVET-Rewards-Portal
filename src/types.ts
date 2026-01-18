@@ -15,6 +15,8 @@ export interface User {
   quizAttempts?: number; // Total attempts at the ATS Innovator Quiz
   isInnovatorVerified?: boolean; // If student passed the mandatory quiz
   isQuizLocked?: boolean; // If student is locked out due to tab switching
+  activeTaskId?: string; // ID of the task currently being taken
+  taskStartTime?: string; // ISO string of when the task was started
   achievements?: string[]; // Array of unlocked achievement IDs
 }
 
@@ -40,6 +42,7 @@ export interface Task {
   attachmentName?: string;
   deadline?: string; // New: Task deadline ISO string
   maxScore?: number; // e.g. "out of 10"
+  timeLimit?: number; // New: Time limit in minutes
 }
 
 export interface TaskSubmission {

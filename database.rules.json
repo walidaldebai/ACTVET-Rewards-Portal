@@ -3,44 +3,43 @@
     "Users": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && (auth.uid === $uid || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'admin' || root.child('Users').child(auth.uid).child('role').val() === 'Super Admin')",
-        ".validate": "newData.hasChildren(['id', 'name', 'email', 'role']) || !newData.exists()"
-      }
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid == $uid || root.child('Users').child(auth.uid).child('role').val() == 'Admin')"
+      },
+      ".write": "auth != null && root.child('Users').child(auth.uid).child('role').val() == 'Admin'"
     },
     "Tasks": {
       ".read": "auth != null",
-      ".write": "auth != null && (root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'admin' || root.child('Users').child(auth.uid).child('role').val() === 'Super Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Teacher' || root.child('Users').child(auth.uid).child('role').val() === 'teacher')"
+      ".write": "auth != null && (root.child('Users').child(auth.uid).child('role').val() == 'Admin' || root.child('Users').child(auth.uid).child('role').val() == 'Teacher')"
     },
     "Task_Submissions": {
       ".read": "auth != null",
-      "$submissionId": {
-        ".write": "auth != null && (newData.child('studentId').val() === auth.uid || data.child('studentId').val() === auth.uid || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'admin' || root.child('Users').child(auth.uid).child('role').val() === 'Super Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Teacher' || root.child('Users').child(auth.uid).child('role').val() === 'teacher')"
-      }
+      ".write": "auth != null",
+      ".indexOn": ["studentId"]
     },
     "Redemption_Requests": {
-      ".indexOn": ["studentId", "timestamp"],
-      ".read": "auth != null && (root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'admin' || root.child('Users').child(auth.uid).child('role').val() === 'Super Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Staff' || root.child('Users').child(auth.uid).child('role').val() === 'staff' || (query.orderByChild === 'studentId' && query.equalTo === auth.uid))",
-      "$requestId": {
-        ".write": "auth != null && (newData.child('studentId').val() === auth.uid || data.child('studentId').val() === auth.uid || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'admin' || root.child('Users').child(auth.uid).child('role').val() === 'Super Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Staff' || root.child('Users').child(auth.uid).child('role').val() === 'staff')",
-        ".validate": "newData.hasChildren(['studentId', 'voucherId', 'status']) || !newData.exists()"
-      }
-    },
-    "Voucher_Levels": {
       ".read": "auth != null",
-      ".write": "auth != null && (root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'admin' || root.child('Users').child(auth.uid).child('role').val() === 'Super Admin')"
+      ".write": "auth != null",
+      ".indexOn": ["studentId"]
     },
     "Point_History": {
       ".read": "auth != null",
       "$uid": {
-        "$historyId": {
-          ".write": "auth != null && ($uid === auth.uid || root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'admin' || root.child('Users').child(auth.uid).child('role').val() === 'Super Admin' || root.child('Users').child(auth.uid).child('role').val() === 'Teacher' || root.child('Users').child(auth.uid).child('role').val() === 'teacher')",
-          ".validate": "newData.hasChildren(['studentId', 'points', 'type', 'timestamp'])"
-        }
+        ".read": "auth != null && (auth.uid == $uid || root.child('Users').child(auth.uid).child('role').val() == 'Admin')",
+        ".write": "auth != null && (auth.uid == $uid || root.child('Users').child(auth.uid).child('role').val() == 'Admin')"
       }
+    },
+    "Voucher_Levels": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('Users').child(auth.uid).child('role').val() == 'Admin'"
     },
     "Classes": {
       ".read": "auth != null",
-      ".write": "auth != null && (root.child('Users').child(auth.uid).child('role').val() === 'Admin' || root.child('Users').child(auth.uid).child('role').val() === 'admin' || root.child('Users').child(auth.uid).child('role').val() === 'Super Admin')"
+      ".write": "auth != null && root.child('Users').child(auth.uid).child('role').val() == 'Admin'"
+    },
+    "Notifications": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }

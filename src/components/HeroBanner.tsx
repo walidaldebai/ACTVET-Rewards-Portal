@@ -21,37 +21,58 @@ const HeroBanner: React.FC<HeroBannerProps> = ({
   const sectionRank = isCheatLocked ? '?' : calculateRank(currentUser?.id || '');
 
   return (
-    <div className="hero-banner-v2 premium-gradient animate-fade-in">
-      <div className="hero-content-v2">
-        <div className="welcome-tag">
-          <Zap size={14} className="text-yellow" />
-          <span>ATS HUB • PERFORMANCE METRICS</span>
-        </div>
-        <h1>Welcome, ATS Innovator</h1>
-        <p>Campus Rank: #{campusRank} • Excellence Points: {points.toLocaleString()}</p>
-
-        <div className="hero-stats-v2">
-          <div className="h-stat">
-            <span className="h-val">#{campusRank}</span>
-            <span className="h-lbl">CAMPUS RANK</span>
+    <div className="hero-banner-modern animate-fade-in">
+      <div className="hero-main-content">
+        <div className="welcome-section">
+          <div className="status-pill animate-slide-right">
+            <span className="pulse-dot"></span>
+            ATS INNOVATOR HUB
           </div>
-          <div className="h-divider"></div>
-          <div className="h-stat">
-            <span className="h-val">#{sectionRank}</span>
-            <span className="h-lbl">SECTION RANK</span>
+          <h1 className="hero-title">
+            Welcome back, <span className="text-gradient">{currentUser?.name?.split(' ')[0] || 'Innovator'}</span>
+          </h1>
+          <p className="hero-subtitle">
+            Your academic excellence journey continues. You are currently ranked 
+            <span className="rank-highlight"> #{campusRank} </span> in the campus.
+          </p>
+        </div>
+
+        <div className="quick-metrics animate-slide-up">
+          <div className="metric-item">
+            <div className="metric-icon campus"><TrendingUp size={20} /></div>
+            <div className="metric-info">
+              <span className="m-label">CAMPUS RANK</span>
+              <span className="m-value">#{campusRank}</span>
+            </div>
+          </div>
+          <div className="metric-item">
+            <div className="metric-icon section"><Zap size={20} /></div>
+            <div className="metric-info">
+              <span className="m-label">SECTION RANK</span>
+              <span className="m-value">#{sectionRank}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="balance-card-v2 glass-card animate-slide-up">
-        <span className="bal-lbl">WALLET BALANCE</span>
-        <div className="bal-amount-v2">
-          <Zap size={32} className="icon-bolt" />
-          <span className="pts-count">{points.toLocaleString()}</span>
+      <div className="wallet-card-modern glass-card floating">
+        <div className="wallet-head">
+          <span className="w-label">TOTAL EXCELLENCE</span>
+          <div className="w-badge">LIVE SYNC</div>
         </div>
-        <div className="bal-history">
-          <TrendingUp size={14} />
-          <span>Growth Mindset Active</span>
+        <div className="wallet-body">
+          <div className="w-amount">
+            <Zap size={32} className="zap-icon" />
+            <span className="w-pts">{points.toLocaleString()}</span>
+            <span className="w-currency">PTS</span>
+          </div>
+          <div className="w-progress">
+            <div className="w-progress-bar" style={{ width: '75%' }}></div>
+          </div>
+          <div className="w-footer">
+            <span>Next Reward at 2,500 PTS</span>
+            <span className="w-percent">75%</span>
+          </div>
         </div>
       </div>
     </div>

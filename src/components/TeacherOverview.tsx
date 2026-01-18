@@ -23,6 +23,8 @@ interface TeacherOverviewProps {
     setNewTaskPoints: (val: number) => void;
     newTaskDeadline: string;
     setNewTaskDeadline: (val: string) => void;
+    newTaskTimeLimit: number;
+    setNewTaskTimeLimit: (val: number) => void;
     newTaskFile: File | null;
     setNewTaskFile: (val: File | null) => void;
     uploading: boolean;
@@ -47,6 +49,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({
     setNewTaskPoints,
     newTaskDeadline,
     setNewTaskDeadline,
+    newTaskTimeLimit,
+    setNewTaskTimeLimit,
     newTaskFile,
     setNewTaskFile,
     uploading,
@@ -89,6 +93,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({
                 setNewTaskPoints={setNewTaskPoints}
                 newTaskDeadline={newTaskDeadline}
                 setNewTaskDeadline={setNewTaskDeadline}
+                newTaskTimeLimit={newTaskTimeLimit}
+                setNewTaskTimeLimit={setNewTaskTimeLimit}
                 newTaskFile={newTaskFile}
                 setNewTaskFile={setNewTaskFile}
                 uploading={uploading}

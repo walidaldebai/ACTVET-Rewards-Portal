@@ -6,6 +6,15 @@ import { auth, db } from '../lib/firebase';
 import {
   Zap,
   ShieldCheck,
+  Menu,
+  ClipboardList,
+  Ticket,
+  Award,
+  Settings,
+  LayoutDashboard,
+  Trophy,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 import StudentSidebar from '../components/StudentSidebar';
 import InnovatorQuiz from '../components/InnovatorQuiz';
@@ -32,12 +41,18 @@ const StudentDashboard: React.FC = () => {
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [handInFile, setHandInFile] = useState<File | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
-  const [activeTab, setActiveTab] = useState<'rewards' | 'tasks' | 'leaderboard' | 'settings'>('tasks');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'rewards' | 'tasks' | 'leaderboard' | 'settings'>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAchievementsOpen, setIsAchievementsOpen] = useState(true);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passLoading, setPassLoading] = useState(false);
   const [isCheatLocked, setIsCheatLocked] = useState(currentUser?.isQuizLocked || false);
   const [showWarning, setShowWarning] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(currentUser?.activeTaskId || null);
+  const [taskStartTime, setTaskStartTime] = useState<string | null>(currentUser?.taskStartTime || null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const quizCompletedRef = React.useRef(false);
 
   // Sync points and isCheatLocked with currentUser's state
   useEffect(() => {
@@ -48,8 +63,95 @@ const StudentDashboard: React.FC = () => {
       if (currentUser.points !== undefined) {
         setPoints(currentUser.points);
       }
+      if (currentUser.activeTaskId !== undefined) {
+        setActiveTaskId(currentUser.activeTaskId);
+      }
+      if (currentUser.taskStartTime !== undefined) {
+        setTaskStartTime(currentUser.taskStartTime);
+      }
     }
   }, [currentUser]);
+
+  // Task Timer Effect
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const checkAbandonedTask = async () => {
+      if (currentUser.activeTaskId && currentUser.taskStartTime) {
+        const activeTask = tasks.find(t => t.id === currentUser.activeTaskId);
+        if (activeTask) {
+          // STRICT RULE: If they closed the page with an active task, it fails immediately on return
+          console.log("Abandoned task detected on mount, failing it immediately as per security policy...");
+          await handleTimeout(activeTask, 'Automatic failure: Page session was closed or refreshed during active task.');
+        }
+      }
+    };
+
+    checkAbandonedTask();
+  }, [currentUser, tasks]);
+
+  useEffect(() => {
+     if (!activeTaskId || !taskStartTime || tasks.length === 0) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const task = tasks.find(t => t.id === activeTaskId);
+    if (!task || !task.timeLimit) return;
+
+    const limitInSeconds = task.timeLimit * 60;
+    const start = new Date(taskStartTime).getTime();
+    
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const elapsed = Math.floor((now - start) / 1000);
+      const remaining = limitInSeconds - elapsed;
+
+      if (remaining <= 0) {
+        setTimeLeft(0);
+        clearInterval(interval);
+        // Auto-fail task on timeout
+        handleTimeout(task);
+      } else {
+        setTimeLeft(remaining);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeTaskId, taskStartTime, tasks]);
+
+  const handleTimeout = async (task: Task, customMessage?: string) => {
+    if (!currentUser) return;
+    
+    try {
+      const submissionRef = push(ref(db, 'Task_Submissions'));
+      await set(submissionRef, {
+        taskId: task.id,
+        studentId: currentUser.id,
+        studentName: currentUser.name,
+        studentGrade: currentUser.grade!,
+        status: 'Rejected',
+        submittedAt: new Date().toISOString(),
+        points: 0,
+        taskTitle: task.title,
+        subject: task.subject,
+        teacherComment: customMessage || 'Automatic failure: Time limit exceeded.'
+      });
+      
+      setActiveTaskId(null);
+      setTaskStartTime(null);
+      
+      await update(ref(db, `Users/${currentUser.id}`), {
+        activeTaskId: null,
+        taskStartTime: null,
+        isQuizLocked: true // Lock the student out as well
+      });
+
+      alert(customMessage || `⏰ Time's up! The task "${task.title}" has been marked as failed.`);
+    } catch (err) {
+      console.error("Failed to handle task timeout", err);
+    }
+  };
 
   const calculateRank = (studentId: string) => {
     if (!currentUser || allStudents.length === 0) return '-';
@@ -125,11 +227,15 @@ const StudentDashboard: React.FC = () => {
     // Listen for Vouchers
     const vouchersRef = child(dbRef, 'Voucher_Levels');
     const unsubscribeVouchers = onValue(vouchersRef, (snapshot) => {
-      const fetched: VoucherLevel[] = [];
-      if (snapshot.exists()) {
-        snapshot.forEach((child) => { fetched.push({ id: child.key, ...child.val() }); });
+      const data = snapshot.val();
+      if (data) {
+        // Map the entries to ensure each voucher has an id (using the key as fallback)
+        const list = Object.entries(data).map(([key, val]: [string, any]) => ({
+          ...val,
+          id: val.id || key
+        }));
+        setVouchers(list);
       }
-      setVouchers(fetched);
       setLoading(false);
     });
 
@@ -143,33 +249,31 @@ const StudentDashboard: React.FC = () => {
       setTasks(fetched);
     });
 
-    // Listen for Submissions (filtered by studentId for rule compliance)
-    const submissionsQuery = query(
-      ref(db, 'Task_Submissions'),
-      orderByChild('studentId'),
-      equalTo(currentUser.id)
-    );
-    const unsubscribeSubmissions = onValue(submissionsQuery, (snapshot) => {
+    // Listen for Submissions (Client-side filtering to avoid indexing warnings)
+    const submissionsRef = child(dbRef, 'Task_Submissions');
+    const unsubscribeSubmissions = onValue(submissionsRef, (snapshot) => {
       const fetched: TaskSubmission[] = [];
       if (snapshot.exists()) {
         snapshot.forEach((child) => {
-          fetched.push({ id: child.key, ...child.val() });
+          const data = child.val();
+          if (data.studentId === currentUser.id) {
+            fetched.push({ id: child.key, ...data });
+          }
         });
       }
       setSubmissions(fetched);
     });
 
-    // Listen for Redemptions (filtered by studentId for rule compliance)
-    const redemptionsQuery = query(
-      ref(db, 'Redemption_Requests'),
-      orderByChild('studentId'),
-      equalTo(currentUser.id)
-    );
-    const unsubscribeRedemptions = onValue(redemptionsQuery, (snapshot) => {
+    // Listen for Redemptions (Client-side filtering to avoid indexing warnings)
+    const redemptionsRef = child(dbRef, 'Redemption_Requests');
+    const unsubscribeRedemptions = onValue(redemptionsRef, (snapshot) => {
       const fetched: Redemption[] = [];
       if (snapshot.exists()) {
         snapshot.forEach((child) => {
-          fetched.push({ id: child.key, ...child.val() });
+          const data = child.val();
+          if (data.studentId === currentUser.id) {
+            fetched.push({ id: child.key, ...data });
+          }
         });
       }
       setRedemptions(fetched);
@@ -202,8 +306,13 @@ const StudentDashboard: React.FC = () => {
       setClasses(fetched);
     });
 
-    // Set points initially from currentUser
-    setPoints(currentUser.points || 0);
+    // Listen for current user points in real-time
+    const userPointsRef = ref(db, `Users/${currentUser.id}/points`);
+    const unsubscribeUserPoints = onValue(userPointsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setPoints(snapshot.val());
+      }
+    });
 
     return () => {
       unsubscribeVouchers();
@@ -212,6 +321,7 @@ const StudentDashboard: React.FC = () => {
       unsubscribeRedemptions();
       unsubscribeUsers();
       unsubscribeClasses();
+      unsubscribeUserPoints();
     };
   }, [currentUser]);
 
@@ -228,26 +338,35 @@ const StudentDashboard: React.FC = () => {
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      // ONLY trigger if student is actively doing a task OR taking the quiz
-      const isDoingTask = activeTab === 'tasks';
-      const isTakingQuiz = showQuiz;
+      // Security enforcement: Fail task/quiz if student switches tabs
+      const isTakingQuiz = showQuiz && !quizCompletedRef.current;
+      const isTaskActive = activeTaskId !== null;
 
-      if (document.hidden && currentUser?.role === 'Student' && !isCheatLocked && (isDoingTask || isTakingQuiz)) {
+      if (document.hidden && currentUser?.role === 'Student' && !isCheatLocked && (isTakingQuiz || isTaskActive)) {
         // User switched tabs - Potential Cheating
         setIsCheatLocked(true);
         
-        // Persist lock state to database
+        // Persist lock state to database and clear active task
         try {
           await update(ref(db, `Users/${currentUser.id}`), {
-            isQuizLocked: true
+            isQuizLocked: true,
+            activeTaskId: null,
+            taskStartTime: null
           });
         } catch (e) {
           console.error("Failed to persist lock state", e);
         }
         
-        // If they were taking the quiz, we force close it and lock them out
+        // If they were taking the quiz or task, we force close and lock them out
         if (isTakingQuiz) {
           setShowQuiz(false);
+        }
+        
+        if (isTaskActive) {
+          const activeTask = tasks.find(t => t.id === activeTaskId);
+          if (activeTask) {
+            await handleTimeout(activeTask, 'Automatic failure: Security violation (tab switching/closing during active task).');
+          }
         }
 
         // Notify Teacher (Push to Notifications collection)
@@ -256,7 +375,7 @@ const StudentDashboard: React.FC = () => {
           await set(notificationRef, {
             type: 'cheat_alert',
             title: 'Academic Integrity Warning',
-            message: `Student ${currentUser.name} switched tabs/windows during ${isTakingQuiz ? 'Innovator Quiz' : 'active tasks'}. Potential AI resource usage detected.`,
+            message: `Student ${currentUser.name} switched tabs/windows during ${isTakingQuiz ? 'Innovator Quiz' : 'an Active Task'}. Potential AI resource usage detected.`,
             studentId: currentUser.id,
             timestamp: new Date().toISOString(),
             isRead: false,
@@ -271,8 +390,21 @@ const StudentDashboard: React.FC = () => {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [currentUser, isCheatLocked, activeTab, showQuiz]);
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (activeTaskId) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [currentUser, isCheatLocked, showQuiz, activeTaskId]);
 
   const getAchievements = (): Achievement[] => {
     if (!currentUser) return [];
@@ -327,6 +459,21 @@ const StudentDashboard: React.FC = () => {
     .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 3);
 
+  const onStartTask = async (task: Task) => {
+     if (!currentUser) return;
+     const startTime = new Date().toISOString();
+     setActiveTaskId(task.id);
+     setTaskStartTime(startTime);
+     try {
+       await update(ref(db, `Users/${currentUser.id}`), {
+         activeTaskId: task.id,
+         taskStartTime: startTime
+       });
+     } catch (e) {
+       console.error("Failed to persist active task", e);
+     }
+   };
+
   const handleSubmitTask = async (task: Task) => {
     if (!currentUser) return;
 
@@ -373,7 +520,16 @@ const StudentDashboard: React.FC = () => {
 
       await set(submissionRef, submissionData);
       setHandInFile(null);
-      fetchLiveData();
+      setActiveTaskId(null); // Clear active task on success
+      setTaskStartTime(null);
+
+      // Clear from database too
+      if (currentUser) {
+        await update(ref(db, `Users/${currentUser.id}`), {
+          activeTaskId: null,
+          taskStartTime: null
+        });
+      }
       alert('✅ Work handed in successfully! Awaiting teacher validation.');
     } catch (err) {
       console.error(err);
@@ -383,72 +539,62 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  const handleRedeem = async (voucher: any) => {
-    if (!currentUser || !auth.currentUser) return;
-    
-    // Safety: Ensure we use the Staff name even if the DB hasn't updated yet
-    const voucherName = voucher.name.replace('Canteen', 'Staff');
-    
-    // Always use the actual auth UID for security rule compliance
-    const studentId = auth.currentUser.uid;
-
-    // Always use the most up-to-date points from currentUser context if available
-    const currentPoints = currentUser.points !== undefined ? currentUser.points : points;
-
-    if (currentPoints < voucher.pointCost) {
-      alert(`Insufficient points. You have ${currentPoints} but need ${voucher.pointCost}.`);
+  const handleRedeem = async (voucher: VoucherLevel) => {
+    if (!auth.currentUser) {
+      alert("Session expired. Please sign out and sign in again.");
       return;
     }
 
-    if (confirm(`Redeem ${voucherName} for ${voucher.pointCost} points?`)) {
+    const studentId = auth.currentUser.uid;
+
+    if (points < voucher.pointCost) {
+      alert(`Insufficient points! You need ${voucher.pointCost - points} more points.`);
+      return;
+    }
+
+    if (window.confirm(`Redeem ${voucher.name} for ${voucher.pointCost} points?`)) {
       try {
-        const newPoints = currentPoints - voucher.pointCost;
         const redemptionId = `R-${Date.now()}`;
-        const redemptionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        
-        // Ensure aedValue is a number and fallback safely
-        const calculatedAED = Number(voucher.aedValue) || Math.floor(voucher.pointCost / 50);
+        const historyId = `H-${Date.now()}`;
+        const newPoints = points - voucher.pointCost;
 
         const redemptionData = {
           id: redemptionId,
           studentId: studentId,
-          studentName: currentUser.name,
+          studentName: currentUser.name || 'Student',
           voucherId: voucher.id,
-          voucherName: voucherName,
-          aedValue: calculatedAED,
-          code: redemptionCode,
+          voucherName: voucher.name,
+          aedValue: voucher.aedValue,
+          code: Math.random().toString(36).substring(2, 8).toUpperCase(),
           timestamp: new Date().toISOString(),
           status: 'Pending'
         };
 
-        // Create Point History record
-        const historyRef = push(ref(db, `Point_History/${studentId}`));
-        const historyId = historyRef.key;
         const historyData = {
           id: historyId,
           studentId: studentId,
           points: -voucher.pointCost,
-          reason: `Redeemed ${voucherName}`,
+          reason: `Redeemed ${voucher.name}`,
           timestamp: new Date().toISOString(),
           type: 'Redeemed'
         };
 
-        // Perform atomic update for transactional consistency
-        const updates: any = {};
-        updates[`Redemption_Requests/${redemptionId}`] = redemptionData;
-        updates[`Users/${studentId}/points`] = newPoints;
-        updates[`Point_History/${studentId}/${historyId}`] = historyData;
-
-        console.log("Executing atomic redemption update:", updates);
-
-        await update(ref(db), updates);
-        console.log("Atomic update successful");
-
-        setPoints(newPoints);
-        alert(`Success! Your redemption code is: ${redemptionCode}. Show this to the staff.`);
-      } catch (err: any) {
-        console.error("Redemption error details:", err);
-        alert(`Redemption failed: ${err.message || 'Unknown error'}. Please contact support.`);
+        // Split updates to avoid root-level permission issues and provide better error tracking
+        console.log('Initiating redemption sequence for:', studentId);
+        
+        // 1. Create redemption request
+        await set(ref(db, `Redemption_Requests/${redemptionId}`), redemptionData);
+        
+        // 2. Update user points
+        await update(ref(db, `Users/${studentId}`), { points: newPoints });
+        
+        // 3. Record point history
+        await set(ref(db, `Point_History/${studentId}/${historyId}`), historyData);
+        
+        alert(`Success! Your request for ${voucher.name} has been sent. Check your redemptions tab.`);
+      } catch (error: any) {
+        console.error('REDEMPTION ERROR:', error);
+        alert(`Failed to redeem voucher: ${error.message || 'Unknown error'}`);
       }
     }
   };
@@ -508,6 +654,21 @@ const StudentDashboard: React.FC = () => {
       .sort((a, b) => (b.totalPoints / b.studentCount) - (a.totalPoints / a.studentCount));
   };
 
+  const handleTabChange = async (tab: 'dashboard' | 'rewards' | 'tasks' | 'leaderboard' | 'settings') => {
+    if (activeTaskId && tab !== 'tasks') {
+      const activeTask = tasks.find(t => t.id === activeTaskId);
+      if (activeTask) {
+        const confirmNav = window.confirm(`⚠️ Leaving the tasks page will fail your active task "${activeTask.title}". Are you sure you want to proceed?`);
+        if (confirmNav) {
+          await handleTimeout(activeTask);
+          setActiveTab(tab);
+        }
+        return;
+      }
+    }
+    setActiveTab(tab);
+  };
+
   if (loading) {
     return (
       <div className="admin-loader-screen">
@@ -519,14 +680,33 @@ const StudentDashboard: React.FC = () => {
 
   return (
     <div className="student-portal">
+      {/* Background Liquid Glows */}
+      <div className="liquid-blob blob-1"></div>
+      <div className="liquid-blob blob-2"></div>
+      <div className="liquid-blob blob-3"></div>
+
       <StudentSidebar 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={handleTabChange} 
         currentUser={currentUser} 
         logout={logout} 
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
 
-      <main className="portal-main">
+      <div className="mobile-header mobile-only">
+        <button className="menu-btn" onClick={() => setIsSidebarOpen(true)}>
+          <Menu size={24} />
+        </button>
+        <div className="mobile-brand">
+          <span className="s-main">ATS Innovator</span>
+        </div>
+        <div className="u-avatar-mini gold-gradient">
+          {currentUser?.name?.charAt(0)}
+        </div>
+      </div>
+
+      <main className={`portal-main ${!isAchievementsOpen ? 'achievements-hidden' : ''}`}>
         {isCheatLocked && (
           <div className="lockout-overlay">
             <div className="lockout-card glass-card animate-scale-in">
@@ -545,7 +725,6 @@ const StudentDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Verification Prompt Banner */}
         {!currentUser?.isInnovatorVerified && !isCheatLocked && (
           <div className="verification-prompt-banner animate-slide-down">
             <div className="v-prompt-content">
@@ -560,7 +739,6 @@ const StudentDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Innovator Quiz Modal */}
         {showQuiz && (
           <div className="quiz-modal-overlay">
             <div className="quiz-modal-content">
@@ -572,17 +750,19 @@ const StudentDashboard: React.FC = () => {
                 studentId={currentUser?.id || ''}
                 attempts={currentUser?.quizAttempts || 0}
                 onComplete={async (pts) => {
+                  quizCompletedRef.current = true;
+                  if (!auth.currentUser) return;
                   try {
-                    const updates: any = {};
-                    updates[`Users/${currentUser?.id}/isInnovatorVerified`] = true;
-                    updates[`Users/${currentUser?.id}/points`] = (currentUser?.points || 0) + pts;
-                    updates[`Users/${currentUser?.id}/quizAttempts`] = (currentUser?.quizAttempts || 0) + 1;
-
-                    await update(ref(db), updates);
+                    const updates = {
+                      isInnovatorVerified: true,
+                      points: (currentUser?.points || 0) + pts,
+                      quizAttempts: (currentUser?.quizAttempts || 0) + 1
+                    };
+                    await update(ref(db, `Users/${auth.currentUser.uid}`), updates);
                     setShowQuiz(false);
                     setPoints((currentUser?.points || 0) + pts);
                     alert(`🌟 Congratulations! You have been verified as an ATS Innovator. +${pts} Initial Merit Points Awarded.`);
-                    window.location.reload(); // Refresh to update session
+                    window.location.reload();
                   } catch (e) {
                     alert("Verification failed.");
                   }
@@ -592,15 +772,27 @@ const StudentDashboard: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'tasks' && (
-              <>
+        <div className="portal-content-layout">
+          <div className="portal-main-content">
+            {activeTab === 'dashboard' && (
+              <div className="tab-view animate-fade-in">
                 <HeroBanner 
-                  currentUser={currentUser}
-                  points={points}
+                  currentUser={currentUser} 
+                  points={points} 
                   calculateCampusRank={calculateCampusRank}
                   calculateRank={calculateRank}
                   isCheatLocked={isCheatLocked}
                 />
+                <div className="dashboard-grid-v2">
+                  <ProfileWidget currentUser={currentUser} submissions={submissions} />
+                  <DeadlinesWidget upcomingDeadlines={upcomingDeadlines} />
+                  <SystemUpdatesWidget />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'tasks' && (
+              <div className="tab-view animate-fade-in">
                 <TasksSection 
                   tasks={tasks}
                   submissions={submissions}
@@ -610,58 +802,60 @@ const StudentDashboard: React.FC = () => {
                   setHandInFile={setHandInFile}
                   handleSubmitTask={handleSubmitTask}
                   isCheatLocked={isCheatLocked}
+                  activeTaskId={activeTaskId}
+                  onStartTask={onStartTask}
+                  timeLeft={timeLeft}
                 />
-              </>
+              </div>
             )}
 
             {activeTab === 'rewards' && (
-              <RewardsSection 
-                vouchers={vouchers}
-                points={points}
-                handleRedeem={handleRedeem}
-              />
+              <div className="tab-view animate-fade-in">
+                <RewardsSection vouchers={vouchers} points={points} handleRedeem={handleRedeem} redemptions={redemptions} />
+              </div>
+            )}
+
+            {activeTab === 'leaderboard' && (
+              <div className="tab-view animate-fade-in">
+                <LeaderboardSection allStudents={allStudents} currentUser={currentUser} getClassLeaderboard={getClassLeaderboard} />
+              </div>
             )}
 
             {activeTab === 'settings' && (
-              <SettingsSection 
-                currentUser={currentUser}
-                handleUpdatePassword={handleUpdatePassword}
-                newPassword={newPassword}
-                setNewPassword={setNewPassword}
-                confirmPassword={confirmPassword}
-                setConfirmPassword={setConfirmPassword}
-                passLoading={passLoading}
-              />
-            )}
-
-            {
-              activeTab === 'leaderboard' && (
-                <LeaderboardSection 
-                  allStudents={allStudents}
+              <div className="tab-view animate-fade-in">
+                <SettingsSection 
                   currentUser={currentUser}
-                  getClassLeaderboard={getClassLeaderboard}
+                  handleUpdatePassword={handleUpdatePassword}
+                  newPassword={newPassword}
+                  setNewPassword={setNewPassword}
+                  confirmPassword={confirmPassword}
+                  setConfirmPassword={setConfirmPassword}
+                  passLoading={passLoading}
                 />
-              )
-            }
+              </div>
+            )}
+          </div>
 
-            {/* Right Sidebar - Widgets */}
-            <aside className="s-rightbar animate-slide-left">
-              <ProfileWidget 
-                currentUser={currentUser}
-                submissions={submissions}
-              />
-
-              <AchievementsWidget 
-                achievements={getAchievements()}
-              />
-
-              <DeadlinesWidget 
-                upcomingDeadlines={upcomingDeadlines}
-              />
-
-              <SystemUpdatesWidget />
+          {/* Achievements Sidebar */}
+          <aside className={`achievements-sidebar glass-card ${isAchievementsOpen ? 'open' : 'closed'}`}>
+            <button 
+              className="ach-toggle-btn" 
+              onClick={() => setIsAchievementsOpen(!isAchievementsOpen)}
+              title={isAchievementsOpen ? "Hide Achievements" : "Show Achievements"}
+            >
+              {isAchievementsOpen ? <ChevronRight size={20} /> : <Award size={20} />}
+            </button>
+            
+            <div className="ach-sidebar-content">
+              <div className="ach-sidebar-header">
+                <Award size={24} className="text-purple-500" />
+                <h2>Achievements</h2>
+              </div>
+              <AchievementsWidget achievements={getAchievements()} />
+            </div>
           </aside>
-        </main>
+        </div>
+      </main>
       {showWarning && (
         <div className="warning-overlay">
           <div className="warning-card animate-scale-in">

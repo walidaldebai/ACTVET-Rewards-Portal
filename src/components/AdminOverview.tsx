@@ -7,8 +7,6 @@ import { Ticket, Trash2 } from 'lucide-react';
 interface AdminOverviewProps {
     users: User[];
     classes: CampusClass[];
-    vouchers: any[];
-    onDeleteVoucher: (id: string) => Promise<void>;
     editUserId: string | null;
     provisionLoading: boolean;
     newUserName: string;
@@ -34,8 +32,6 @@ interface AdminOverviewProps {
 const AdminOverview: React.FC<AdminOverviewProps> = ({
     users,
     classes,
-    vouchers,
-    onDeleteVoucher,
     editUserId,
     provisionLoading,
     newUserName,
@@ -109,53 +105,6 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({
             />
 
             <RecentActivity users={users} onRemove={handleRemoveUser} onResetQuiz={onResetQuiz} />
-
-            <section className="a-card glass-card">
-                <div className="a-card-head">
-                    <Ticket className="text-purple" />
-                    <h2>Current Vouchers</h2>
-                </div>
-                <div className="class-grid-v2">
-                    {vouchers.length === 0 ? (
-                        <div className="empty-state-v2">
-                            <p>No active vouchers found.</p>
-                        </div>
-                    ) : (
-                        vouchers.map(v => (
-                            <div 
-                                key={v.id} 
-                                className="class-card-v3 glass-card" 
-                                style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem', padding: '1.25rem' }}
-                            >
-                                <div className="c-info">
-                                    <span className="c-grade" style={{ background: '#f3e8ff', color: '#9333ea' }}>
-                                        {v.pointCost} PTS
-                                    </span>
-                                    <span className="c-id" style={{ fontSize: '1rem', fontWeight: 800 }}>{v.name}</span>
-                                </div>
-                                <div style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    width: '100%', 
-                                    alignItems: 'center', 
-                                    marginTop: '0.5rem' 
-                                }}>
-                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 700 }}>
-                                        {v.aedValue} AED
-                                    </span>
-                                    <button 
-                                        onClick={() => onDeleteVoucher(v.id)} 
-                                        className="c-delete"
-                                        title="Delete Voucher"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </section>
         </div>
     );
 };

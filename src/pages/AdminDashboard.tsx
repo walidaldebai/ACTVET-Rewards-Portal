@@ -513,8 +513,6 @@ const AdminDashboard: React.FC = () => {
                     <AdminOverview 
                         users={users} 
                         classes={classes}
-                        vouchers={vouchers}
-                        onDeleteVoucher={handleDeleteVoucher}
                         editUserId={editUserId}
                         provisionLoading={provisionLoading}
                         newUserName={newUserName}

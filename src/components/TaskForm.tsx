@@ -16,6 +16,8 @@ interface TaskFormProps {
     setNewTaskPoints: (val: number) => void;
     newTaskDeadline: string;
     setNewTaskDeadline: (val: string) => void;
+    newTaskTimeLimit: number;
+    setNewTaskTimeLimit: (val: number) => void;
     newTaskFile: File | null;
     setNewTaskFile: (file: File | null) => void;
     uploading: boolean;
@@ -36,6 +38,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
     setNewTaskPoints,
     newTaskDeadline,
     setNewTaskDeadline,
+    newTaskTimeLimit,
+    setNewTaskTimeLimit,
     newTaskFile,
     setNewTaskFile,
     uploading,
@@ -104,6 +108,16 @@ const TaskForm: React.FC<TaskFormProps> = ({
                             type="number" 
                             value={newTaskPoints} 
                             onChange={e => setNewTaskPoints(Number(e.target.value))} 
+                        />
+                    </div>
+                    <div className="p-f-group">
+                        <label>Time Limit (Minutes)</label>
+                        <input 
+                            type="number" 
+                            value={newTaskTimeLimit} 
+                            onChange={e => setNewTaskTimeLimit(Number(e.target.value))} 
+                            min={1}
+                            required
                         />
                     </div>
                 </div>

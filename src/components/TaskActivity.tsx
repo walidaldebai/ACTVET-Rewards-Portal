@@ -20,7 +20,7 @@ const TaskActivity: React.FC<TaskActivityProps> = ({ tasks }) => {
                         <div className="p-a-info">
                             <span className="p-a-title">{task.title}</span>
                             <span className="p-a-meta">
-                                Grade {task.grade} • {task.points} PTS • {new Date(task.createdAt).toLocaleDateString()}
+                                Grade {task.grade} • {task.points} PTS • {task.timeLimit} MINS • {new Date(task.createdAt).toLocaleDateString()}
                             </span>
                         </div>
                         <div className="p-a-badge">Active</div>
