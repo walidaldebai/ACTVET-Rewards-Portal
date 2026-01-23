@@ -8,7 +8,7 @@ interface TaskActivityProps {
 
 const TaskActivity: React.FC<TaskActivityProps> = ({ tasks }) => {
     return (
-        <section className="p-card-v3 glass-card span-all">
+        <section className="p-card-v3 glass-card">
             <div className="p-card-head">
                 <TrendingUp className="text-blue" />
                 <h2>Recent Task Activity</h2>

@@ -58,7 +58,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({
 }) => {
     return (
         <div className="p-dashboard-grid animate-fade-in">
-            <section className="p-card-v3 welcome-card premium-gradient span-2">
+            <section className="p-card-v3 welcome-card-teacher span-2">
                 <div className="welcome-content">
                     <h2>Subject: {currentUser?.subject}</h2>
                     <p>You have {submissions.length} pending validations and {tasks.length} active assignments.</p>
@@ -79,7 +79,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({
                 </div>
             </section>
 
-            <TaskForm 
+            <TaskForm
                 onSubmit={onSubmit}
                 newTaskTitle={newTaskTitle}
                 setNewTaskTitle={setNewTaskTitle}

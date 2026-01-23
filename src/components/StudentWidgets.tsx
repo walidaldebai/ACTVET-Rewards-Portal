@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Award, Star, Target, Flame, Bell, CalendarCheck, ChevronDown, ChevronUp } from 'lucide-react';
+
+import React from 'react';
+import { Award, Star, Target, Flame, Bell, CalendarCheck } from 'lucide-react';
 import type { User, TaskSubmission, Achievement, Task } from '../types';
 
 interface ProfileWidgetProps {
@@ -14,30 +15,22 @@ export const ProfileWidget: React.FC<ProfileWidgetProps> = ({ currentUser, submi
   const approvalRate = totalCount > 0 ? ((approvedCount / totalCount) * 100).toFixed(0) : '0';
 
   return (
-    <div className="widget-modern glass-card animate-scale-in">
+    <div className="widget-modern glass-card animate-slide-up">
       <div className="wm-header">
-        <div className="wm-title-group">
-          <Target size={18} className="wm-icon-target" />
-          <span className="wm-title">PERFORMANCE STATUS</span>
-        </div>
-        <div className="wm-badge-live">LIVE</div>
+        <span className="wm-title">Performance Rate</span>
+        <div style={{ background: 'var(--success)', color: 'white', padding: '0.3rem 0.8rem', borderRadius: '100px', fontSize: '0.65rem', fontWeight: 900 }}>ACTIVE</div>
       </div>
-      
-      <div className="wm-body">
-        <div className="wm-main-stat">
-          <span className="wm-val">{approvalRate}%</span>
-          <span className="wm-lbl">APPROVAL RATE</span>
-        </div>
-        
-        <div className="wm-sub-stats">
-          <div className="wm-sub-item">
-            <span className="wms-val">{totalCount}</span>
-            <span className="wms-lbl">TASKS DONE</span>
+
+      <div className="wm-body" style={{ marginTop: '1rem' }}>
+        <span className="wm-val">{approvalRate}%</span>
+        <div style={{ display: 'flex', gap: '2rem', marginTop: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 700 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ color: 'var(--primary)', fontSize: '1.25rem', fontWeight: 900 }}>{totalCount}</span>
+            <span>Total Tasks</span>
           </div>
-          <div className="wm-divider"></div>
-          <div className="wm-sub-item">
-            <span className="wms-val">{approvedCount}</span>
-            <span className="wms-lbl">APPROVED</span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ color: 'var(--success)', fontSize: '1.25rem', fontWeight: 900 }}>{approvedCount}</span>
+            <span>Approved</span>
           </div>
         </div>
       </div>
@@ -50,101 +43,87 @@ interface AchievementsWidgetProps {
 }
 
 export const AchievementsWidget: React.FC<AchievementsWidgetProps> = ({ achievements }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-
   return (
-    <div className="widget-modern glass-card animate-scale-in">
-      <div className="wm-header">
-        <div className="wm-title-group">
-          <Award size={18} className="wm-icon-award" />
-          <span className="wm-title">ACHIEVEMENTS</span>
-        </div>
-        <button 
-          className="w-toggle-btn" 
-          onClick={() => setIsExpanded(!isExpanded)}
-          aria-label={isExpanded ? "Collapse achievements" : "Expand achievements"}
-        >
-          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </button>
-      </div>
-      <div className={`achievements-container ${isExpanded ? 'expanded' : 'collapsed'}`}>
-        <div className="achievements-list">
-          {achievements.map(ach => (
-            <div key={ach.id} className={`ach-item ${ach.isUnlocked ? 'unlocked' : ''}`}>
-              <div className={`ach-icon ${ach.isUnlocked ? 'active' : ''}`}>
-                {ach.icon === 'star' && <Star size={14} />}
-                {ach.icon === 'target' && <Target size={14} />}
-                {ach.icon === 'flame' && <Flame size={14} />}
-                {ach.icon === 'award' && <Award size={14} />}
-              </div>
-              <div className="ach-info">
-                <span className="ach-title">{ach.title}</span>
-                <div className="ach-bar-bg">
-                  <div className="ach-bar-fill" style={{ width: `${ach.progress}%` }}></div>
-                </div>
-              </div>
+    <div className="ach-list-modern">
+      {achievements.map(ach => (
+        <div key={ach.id} className={`ach-item ${ach.isUnlocked ? 'unlocked' : 'locked'}`}>
+          <div className="a-icon-box">
+            {ach.icon === 'star' && <Star size={20} />}
+            {ach.icon === 'target' && <Target size={20} />}
+            {ach.icon === 'flame' && <Flame size={20} />}
+            {ach.icon === 'award' && <Award size={20} />}
+            {!ach.isUnlocked && <div className="a-lock-overlay">🔒</div>}
+          </div>
+          <div className="ach-info-text">
+            <div className="ach-header-row">
+              <span className="a-title">{ach.title}</span>
+              <span className="a-percent">{ach.progress}%</span>
             </div>
-          ))}
+            <p className="a-desc">{ach.description}</p>
+            <div className="ach-progress-outer">
+              <div
+                className="ach-progress-inner"
+                style={{
+                  width: `${ach.progress}%`,
+                  background: ach.isUnlocked ? 'var(--gold-gradient)' : 'var(--accent-gradient)'
+                }}
+              ></div>
+            </div>
+          </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 };
-
-interface DeadlinesWidgetProps {
-  upcomingDeadlines: Task[];
-}
 
 export const SystemUpdatesWidget: React.FC = () => {
   return (
-    <div className="widget-modern glass-card animate-scale-in">
+    <div className="widget-modern glass-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
       <div className="wm-header">
-        <div className="wm-title-group">
-          <Bell size={18} className="wm-icon-bell" />
-          <span className="wm-title">SYSTEM UPDATES</span>
-        </div>
+        <span className="wm-title">Campus Intelligence</span>
+        <Bell size={18} color="var(--accent)" />
       </div>
-      <div className="notif-list">
+      <div className="notif-list" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         <div className="notif-item">
           <div className="n-dot"></div>
-          <p>Rewards catalog updated with 3 new items.</p>
-          <span className="n-time">2h ago</span>
+          <div>
+            <p style={{ fontWeight: 700, fontSize: '0.95rem' }}>Rewards Catalog Refreshed</p>
+            <span className="n-time">Just now</span>
+          </div>
         </div>
         <div className="notif-item">
           <div className="n-dot"></div>
-          <p>Leaderboard refreshed for Term 2.</p>
-          <span className="n-time">5h ago</span>
+          <div>
+            <p style={{ fontWeight: 700, fontSize: '0.95rem' }}>Term 2 Analytics Live</p>
+            <span className="n-time">3 hours ago</span>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export const DeadlinesWidget: React.FC<DeadlinesWidgetProps> = ({ upcomingDeadlines }) => {
+export const DeadlinesWidget: React.FC<{ upcomingDeadlines: Task[] }> = ({ upcomingDeadlines }) => {
   return (
-    <div className="widget-modern glass-card animate-scale-in">
+    <div className="widget-modern glass-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
       <div className="wm-header">
-        <div className="wm-title-group">
-          <CalendarCheck size={18} className="wm-icon-calendar" />
-          <span className="wm-title">UPCOMING DEADLINES</span>
-        </div>
+        <span className="wm-title">Priority Deadlines</span>
+        <CalendarCheck size={18} color="var(--danger)" />
       </div>
-      <div className="deadlines-list">
-        {upcomingDeadlines.length > 0 ? upcomingDeadlines.map(t => (
+      <div className="deadlines-list" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {upcomingDeadlines.length > 0 ? upcomingDeadlines.slice(0, 3).map(t => (
           <div key={t.id} className="deadline-item">
             <div className="d-date-box">
               <span className="d-day">{new Date(t.deadline!).getDate()}</span>
               <span className="d-month">{new Date(t.deadline!).toLocaleString('default', { month: 'short' }).toUpperCase()}</span>
             </div>
             <div className="d-info">
-              <span className="d-subject">{t.subject}</span>
-              <span className="d-task-title">{t.title.substring(0, 25)}{t.title.length > 25 ? '...' : ''}</span>
+              <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase' }}>{t.subject}</div>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>{t.title.substring(0, 25)}</div>
             </div>
           </div>
         )) : (
-          <div className="empty-widget">
-            <span>No upcoming deadlines</span>
-          </div>
+          <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontWeight: 600 }}>Zero Pending Academic Deadlines</div>
         )}
       </div>
     </div>

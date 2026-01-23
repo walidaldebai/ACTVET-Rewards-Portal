@@ -459,6 +459,11 @@ const AdminDashboard: React.FC = () => {
 
     return (
         <div className="admin-app">
+            {/* Background Liquid Glows */}
+            <div className="liquid-blob blob-1"></div>
+            <div className="liquid-blob blob-2"></div>
+            <div className="liquid-blob blob-3"></div>
+
             <AdminSidebar 
                 activeTab={activeTab} 
                 setActiveTab={setActiveTab} 

@@ -37,9 +37,9 @@ const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                 <Users className="text-purple" />
                 <h2>Student Directory</h2>
                 <div className="p-filters-v2">
-                    <select 
-                        className="p-class-select glass-card" 
-                        value={selectedClassFilter} 
+                    <select
+                        className="p-class-select glass-card"
+                        value={selectedClassFilter}
                         onChange={e => setSelectedClassFilter(e.target.value)}
                     >
                         <option value="All">{teacherClasses.length === 0 ? 'All Campus Students' : 'All Assigned Classes'}</option>
@@ -49,11 +49,11 @@ const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                     </select>
                     <div className="p-search-box glass-card">
                         <Search size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Search students..." 
-                            value={searchTerm} 
-                            onChange={e => setSearchTerm(e.target.value)} 
+                        <input
+                            type="text"
+                            placeholder="Search students..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
                         />
                     </div>
                 </div>
@@ -74,15 +74,15 @@ const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                             <tr key={student.id}>
                                 <td>
                                     <div className="p-table-user">
-                                        <div className="p-table-avatar">{student.name.charAt(0)}</div>
+                                        <div className="p-table-avatar">{student.name?.charAt(0) || 'S'}</div>
                                         <div className="p-table-info">
                                             <div className="p-t-name-wrapper">
-                                                <span className="p-t-name">{student.name}</span>
+                                                <span className="p-t-name">{student.name || 'Unknown Student'}</span>
                                                 {student.isQuizLocked && (
                                                     <span className="locked-badge">LOCKED</span>
                                                 )}
                                             </div>
-                                            <span className="p-t-email">{student.email}</span>
+                                            <span className="p-t-email">{student.email || 'No Email'}</span>
                                         </div>
                                     </div>
                                 </td>
@@ -100,18 +100,18 @@ const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                                     <div className="p-table-actions">
                                         {adjustingPoints === student.id ? (
                                             <div className="p-adjust-input animate-slide-right">
-                                                <input 
-                                                    type="number" 
-                                                    value={customPointAmount} 
-                                                    onChange={e => setCustomPointAmount(Number(e.target.value))} 
+                                                <input
+                                                    type="number"
+                                                    value={customPointAmount}
+                                                    onChange={e => setCustomPointAmount(Number(e.target.value))}
                                                 />
                                                 <button onClick={() => handleQuickAdjust(student.id, customPointAmount)}>Add</button>
                                                 <button onClick={() => handleQuickAdjust(student.id, -customPointAmount)} className="red">Deduct</button>
                                                 <button onClick={() => setAdjustingPoints(null)} className="cancel">X</button>
                                             </div>
                                         ) : (
-                                            <button 
-                                                className="p-action-btn accent" 
+                                            <button
+                                                className="p-action-btn accent"
                                                 onClick={() => {
                                                     setAdjustingPoints(student.id);
                                                     setCustomPointAmount(100);
@@ -131,10 +131,10 @@ const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                                         <Users size={48} />
                                         <h3>{searchTerm ? 'No matching students found' : (teacherClasses.length === 0 ? 'No students found in the system' : 'No students found in your assigned classes')}</h3>
                                         <p>
-                                            {searchTerm 
-                                                ? 'Try a different search term.' 
-                                                : (teacherClasses.length === 0 
-                                                    ? 'The system directory is currently empty. Please contact an administrator.' 
+                                            {searchTerm
+                                                ? 'Try a different search term.'
+                                                : (teacherClasses.length === 0
+                                                    ? 'The system directory is currently empty. Please contact an administrator.'
                                                     : 'Try changing the class filter or contact an administrator for class assignments.')}
                                         </p>
                                     </div>

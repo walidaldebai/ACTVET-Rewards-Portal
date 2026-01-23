@@ -32,7 +32,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({
             Welcome back, <span className="text-gradient">{currentUser?.name?.split(' ')[0] || 'Innovator'}</span>
           </h1>
           <p className="hero-subtitle">
-            Your academic excellence journey continues. You are currently ranked 
+            Your academic excellence journey continues. You are currently ranked
             <span className="rank-highlight"> #{campusRank} </span> in the campus.
           </p>
         </div>
@@ -66,13 +66,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({
             <span className="w-pts">{points.toLocaleString()}</span>
             <span className="w-currency">PTS</span>
           </div>
-          <div className="w-progress">
-            <div className="w-progress-bar" style={{ width: '75%' }}></div>
-          </div>
-          <div className="w-footer">
-            <span>Next Reward at 2,500 PTS</span>
-            <span className="w-percent">75%</span>
-          </div>
+
         </div>
       </div>
     </div>

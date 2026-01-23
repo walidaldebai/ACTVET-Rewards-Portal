@@ -18,6 +18,7 @@ const TeacherDashboard: React.FC = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [submissions, setSubmissions] = useState<TaskSubmission[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskPoints, setNewTaskPoints] = useState(100);
     const [newTaskGrade, setNewTaskGrade] = useState<Grade>(11);
@@ -42,8 +43,21 @@ const TeacherDashboard: React.FC = () => {
     const filteredStudents = students.filter(s =>
         (teacherClasses.length === 0 || teacherClasses.includes(s.classId || '')) &&
         (selectedClassFilter === 'All' || s.classId === selectedClassFilter) &&
-        (s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        (s.name?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth <= 1024 && isSidebarOpen) {
+                setIsSidebarOpen(false);
+            } else if (window.innerWidth > 1024 && !isSidebarOpen) {
+                setIsSidebarOpen(true);
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [isSidebarOpen]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -147,6 +161,8 @@ const TeacherDashboard: React.FC = () => {
             }
 
             const newTaskRef = push(ref(db, 'Tasks'));
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const taskData: any = {
                 title: newTaskTitle,
                 description: `Academic assignment for ${currentUser.subject}. Resources attached where applicable.`,
@@ -172,9 +188,10 @@ const TeacherDashboard: React.FC = () => {
             setNewTaskDeadline('');
             setNewTaskTimeLimit(60);
             alert('🚀 Institutional Assignment Broadcasted Successfully.');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Broadcast Error:", error);
-            alert(`⚠️ Broadcast Failed: ${error.message}`);
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            alert(`⚠️ Broadcast Failed: ${msg}`);
         } finally {
             setUploading(false);
         }
@@ -185,14 +202,16 @@ const TeacherDashboard: React.FC = () => {
         try {
             await set(ref(db, `Tasks/${taskId}`), null);
             alert('✨ Assignment and associated files removed successfully.');
-        } catch (error: any) {
-            alert(`Delete failed: ${error.message}`);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            alert(`Delete failed: ${msg}`);
         }
     };
 
     const handleProcessSubmission = async (submission: TaskSubmission, approve: boolean) => {
         try {
             const status = approve ? 'Approved' : 'Rejected';
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const updates: any = {};
 
             updates[`Task_Submissions/${submission.id}/status`] = status;
@@ -223,6 +242,7 @@ const TeacherDashboard: React.FC = () => {
             await update(ref(db), updates);
             alert(approve ? `✅ Graded & Points Awarded` : `❌ Submission declined`);
         } catch (error) {
+            console.error("Processing failed:", error);
             alert('Processing failed.');
         }
     };
@@ -231,11 +251,12 @@ const TeacherDashboard: React.FC = () => {
         try {
             const student = students.find(s => s.id === studentId);
             if (!student) return;
-            
+
             const newPoints = (student.points || 0) + amount;
             const historyRef = push(ref(db, `Point_History/${studentId}`));
             const historyKey = historyRef.key;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const updates: any = {};
             updates[`Users/${studentId}/points`] = newPoints;
             updates[`Point_History/${studentId}/${historyKey}`] = {
@@ -248,14 +269,18 @@ const TeacherDashboard: React.FC = () => {
 
             console.log(`Executing point adjustment for student ${studentId}: ${amount} points. Current User Role: ${currentUser?.role}`);
             await update(ref(db), updates);
-            
+
             setAdjustingPoints(null);
             alert(`Successfully ${amount > 0 ? 'awarded' : 'deducted'} ${Math.abs(amount)} points.`);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Adjustment Error:', err);
-            const errorMsg = err.code === 'PERMISSION_DENIED' 
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const code = (err as any).code;
+
+            const errorMsg = code === 'PERMISSION_DENIED'
                 ? `Permission Denied: You do not have authorization to adjust points. (Current Role: ${currentUser?.role || 'Unknown'})`
-                : `Adjustment failed: ${err.message}`;
+                : `Adjustment failed: ${msg}`;
             alert(errorMsg);
         }
     };
@@ -263,20 +288,47 @@ const TeacherDashboard: React.FC = () => {
     if (loading) return <div>Loading Gateway...</div>;
 
     return (
-        <div className="teacher-portal">
-            <TeacherSidebar 
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                currentUser={currentUser} 
-                submissionsCount={submissions.length} 
-                logout={logout} 
+        <div className={`teacher-portal ${!isSidebarOpen ? 'sidebar-collapsed' : ''}`}>
+            {/* Background Liquid Glows */}
+            <div className="liquid-blob blob-1"></div>
+            <div className="liquid-blob blob-2"></div>
+            <div className="liquid-blob blob-3"></div>
+
+            {/* Mobile Sidebar Overlay */}
+            {!isSidebarOpen === false && (
+                <div
+                    className="p-sidebar-overlay"
+                    onClick={() => setIsSidebarOpen(false)}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.2)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 1500,
+                        display: window.innerWidth <= 1024 ? 'block' : 'none'
+                    }}
+                ></div>
+            )}
+
+            <TeacherSidebar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                currentUser={currentUser}
+                submissionsCount={submissions.length}
+                logout={logout}
             />
 
             <main className="p-main-workspace animate-fade-in">
-                <TeacherHeader subject={currentUser?.subject || 'Educator'} />
+                <TeacherHeader
+                    subject={currentUser?.subject || 'Educator'}
+                    onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                />
 
                 {activeTab === 'overview' && (
-                    <TeacherOverview 
+                    <TeacherOverview
                         currentUser={currentUser}
                         submissions={submissions}
                         tasks={tasks}
@@ -304,7 +356,7 @@ const TeacherDashboard: React.FC = () => {
                 )}
 
                 {activeTab === 'queue' && (
-                    <SubmissionQueue 
+                    <SubmissionQueue
                         submissions={submissions}
                         gradingScore={gradingScore}
                         setGradingScore={setGradingScore}
@@ -314,7 +366,7 @@ const TeacherDashboard: React.FC = () => {
                 )}
 
                 {activeTab === 'students' && (
-                    <StudentDirectory 
+                    <StudentDirectory
                         filteredStudents={filteredStudents}
                         classes={classes}
                         teacherClasses={teacherClasses}
@@ -331,16 +383,16 @@ const TeacherDashboard: React.FC = () => {
                 )}
 
                 {activeTab === 'resources' && (
-                    <ResourceVault 
+                    <ResourceVault
                         tasks={tasks}
                         handleDeleteTask={handleDeleteTask}
                     />
                 )}
 
                 {activeTab === 'lockouts' && (
-                    <QuizLockouts 
-                        students={students.filter(s => 
-                            s.isQuizLocked && 
+                    <QuizLockouts
+                        students={students.filter(s =>
+                            s.isQuizLocked &&
                             (teacherClasses.length === 0 || teacherClasses.includes(s.classId || ''))
                         )}
                     />

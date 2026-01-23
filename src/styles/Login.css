@@ -1,76 +1,84 @@
+/* 
+  ACTVET Rewards Portal - Login PREMIUM DESIGN
+  Liquid Glass & Immersive Experience
+*/
+
 .login-container {
   display: flex;
   height: 100vh;
   width: 100vw;
-  background: white;
+  background: transparent;
   overflow: hidden;
+  position: relative;
+  color: var(--primary);
 }
 
-/* Left Brand Panel */
+/* Left Brand Panel - Immersive Glass */
 .brand-panel {
   width: 45%;
-  background: #020617;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
   overflow: hidden;
+  background: rgba(2, 6, 23, 0.4);
+  backdrop-filter: blur(40px) saturate(150%);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .brand-mesh {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 10% 10%, rgba(14, 165, 233, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 90% 90%, rgba(34, 197, 94, 0.1) 0%, transparent 40%);
+    radial-gradient(circle at 0% 0%, rgba(14, 165, 233, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.1) 0%, transparent 50%);
   opacity: 0.8;
 }
 
 .brand-content {
   position: relative;
   z-index: 10;
-  padding: 4rem;
-  max-width: 600px;
-}
-
-.logo-wrapper {
-  margin-bottom: 2.5rem;
+  padding: 5rem;
+  max-width: 700px;
+  animation: slideUp 0.8s var(--ease-out);
 }
 
 .ats-logo-lg {
-  width: 140px;
+  width: 160px;
   height: auto;
   display: block;
-  filter: drop-shadow(0 0 20px rgba(14, 165, 233, 0.3));
+  margin-bottom: 3rem;
+  filter: drop-shadow(0 0 30px rgba(14, 165, 233, 0.4));
 }
 
 .brand-text h1 {
-  font-size: 3.5rem;
-  font-weight: 800;
-  line-height: 1.1;
-  margin-bottom: 1.5rem;
-  letter-spacing: -0.03em;
+  font-size: 4rem;
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 2rem;
+  letter-spacing: -0.04em;
+  color: white;
 }
 
 .text-highlight {
-  color: var(--ats-blue);
-  background: -webkit-linear-gradient(135deg, #0ea5e9, #22c55e);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .brand-text p {
-  font-size: 1.1rem;
-  opacity: 0.7;
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.6);
   line-height: 1.6;
-  max-width: 90%;
-  margin-bottom: 3rem;
+  margin-bottom: 4rem;
+  font-weight: 500;
 }
 
 .brand-badges {
   display: flex;
   gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .badge-item {
@@ -78,12 +86,12 @@
   align-items: center;
   gap: 0.75rem;
   background: rgba(255, 255, 255, 0.05);
-  padding: 0.75rem 1.25rem;
+  padding: 0.8rem 1.5rem;
   border-radius: 100px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  color: white;
   backdrop-filter: blur(10px);
 }
 
@@ -93,13 +101,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
-  padding: 2rem;
+  padding: 4rem;
+  z-index: 1;
 }
 
 .form-content {
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
+  background: rgba(255, 255, 255, 0.85);
+  /* Increased opacity for readability */
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 40px;
+  padding: 4rem;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.1);
+  animation: scaleIn 0.6s var(--ease-out) 0.1s backwards;
 }
 
 .form-header {
@@ -107,29 +123,32 @@
 }
 
 .form-header h2 {
-  font-size: 2rem;
-  font-weight: 900;
-  color: #0f172a;
-  margin-bottom: 0.5rem;
-  letter-spacing: -0.02em;
+  font-size: 2.25rem;
+  font-weight: 950;
+  /* Heavier for better visibility */
+  color: #020617;
+  /* Darker navy */
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
 }
 
 .form-header p {
-  color: #64748b;
-  font-size: 0.95rem;
+  color: #475569;
+  /* Darker slate for contrast */
+  font-weight: 600;
 }
 
 .error-banner {
-  background: #fef2f2;
-  border: 1px solid #fee2e2;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
   color: #ef4444;
-  padding: 1rem;
-  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 2rem;
 }
 
@@ -139,19 +158,16 @@
   gap: 1.5rem;
 }
 
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
 .input-group label {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 900;
   color: #334155;
+  /* Darker for accessibility */
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-left: 0.25rem;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+  display: block;
+  margin-left: 0.5rem;
 }
 
 .input-field {
@@ -162,130 +178,113 @@
 
 .input-icon {
   position: absolute;
-  left: 1.25rem;
+  left: 1.5rem;
   color: #94a3b8;
-  pointer-events: none;
-  transition: 0.2s;
+  transition: 0.3s;
 }
 
 .input-field input {
   width: 100%;
-  padding: 1rem 1rem 1rem 3.5rem;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
-  border-radius: 16px;
+  padding: 1.25rem 1.25rem 1.25rem 4rem;
+  background: white;
+  /* Solid white for inputs on glass */
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 800;
   color: #0f172a;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
 }
 
 .input-field input:focus {
   background: white;
-  border-color: var(--ats-blue);
-  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
-  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 5px rgba(14, 165, 233, 0.1);
 }
 
-.input-field input:focus ~ .input-icon {
-  color: var(--ats-blue);
+.input-field input:focus~.input-icon {
+  color: var(--accent);
 }
 
 .submit-btn {
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   padding: 1.25rem;
-  background: #0f172a;
+  background: var(--primary);
+  /* Solid dark background for maximum readability */
   color: white;
-  border-radius: 18px;
-  font-weight: 700;
-  font-size: 1rem;
+  border-radius: 20px;
+  font-weight: 950;
+  /* Ultra heavy */
+  font-size: 1.1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
-  transition: all 0.3s;
-  box-shadow: 0 10px 20px -5px rgba(2, 6, 23, 0.2);
+  gap: 1rem;
+  transition: all 0.4s var(--ease-out);
+  box-shadow: 0 15px 30px rgba(2, 6, 23, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.submit-btn:hover {
-  background: var(--ats-blue);
-  transform: translateY(-2px);
-  box-shadow: 0 15px 30px -5px rgba(14, 165, 233, 0.3);
-}
-
-.submit-btn:active {
-  transform: translateY(0);
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-4px) scale(1.02);
+  background: #020617;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 .submit-btn:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
+.loader {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+}
+
 .form-footer {
-  margin-top: 4rem;
+  margin-top: 3rem;
   text-align: center;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
   padding-top: 2rem;
 }
 
 .form-footer p {
   font-size: 0.75rem;
   color: #94a3b8;
-  font-weight: 500;
+  font-weight: 600;
+  opacity: 0.7;
 }
 
-.form-footer .version {
-  font-family: monospace;
-  opacity: 0.5;
-  margin-top: 0.5rem;
-}
-
-.loader {
-  width: 20px;
-  height: 20px;
-  border: 2px solid white;
-  border-bottom-color: transparent;
-  border-radius: 50%;
-  display: inline-block;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 1000px) {
+@media (max-width: 1024px) {
   .login-container {
     flex-direction: column;
     overflow-y: auto;
     height: auto;
-    min-height: 100vh;
   }
+
   .brand-panel {
     width: 100%;
-    padding: 4rem 2rem;
     min-height: 40vh;
+    padding: 4rem 2rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
-  .brand-content {
-    text-align: center;
-    align-items: center;
-    display: flex;
-    flex-direction: column;
+
+  .form-panel {
+    padding: 2rem;
   }
-  .ats-logo-lg {
-    width: 100px;
-    margin-bottom: 2rem;
+
+  .form-content {
+    padding: 3rem 2rem;
+    border-radius: 30px;
   }
+
   .brand-text h1 {
     font-size: 2.5rem;
-  }
-  .form-panel {
-    padding: 3rem 1.5rem;
   }
 }
